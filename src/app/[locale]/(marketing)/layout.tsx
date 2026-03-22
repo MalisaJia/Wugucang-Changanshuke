@@ -1,6 +1,8 @@
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
 
+export const runtime = 'edge';
+
 export default function MarketingLayout({
   children,
 }: {

@@ -6,6 +6,8 @@ import { FeaturesSection } from "@/components/landing/features-section";
 import { ProvidersSection } from "@/components/landing/providers-section";
 import { CTASection } from "@/components/landing/cta-section";
 
+export const runtime = 'edge';
+
 export default function HomePage() {
   return (
     <div className="flex min-h-screen flex-col">

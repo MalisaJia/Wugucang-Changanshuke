@@ -2,6 +2,8 @@ import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { LocaleSwitcher } from "@/components/layout/locale-switcher";
 import { Link } from "@/lib/i18n/navigation";
 
+export const runtime = 'edge';
+
 export default function AuthLayout({
   children,
 }: {
