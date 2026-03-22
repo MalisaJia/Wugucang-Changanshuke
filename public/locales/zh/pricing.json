@@ -1,0 +1,121 @@
+{
+  "pricing": {
+  "title": "定价方案",
+  "subtitle": "选择适合您的套餐，开启智能 AI 之旅",
+  "forIndividuals": "个人用户",
+  "forEnterprise": "企业用户",
+  "perMonth": "/月",
+  "perYear": "/年",
+  "perSeat": "/月/席位",
+  "recommended": "推荐",
+  "save": "省 ¥944",
+  "includes": "包含",
+  "everythingIn": "包含以上所有功能，另有",
+  "free": {
+    "name": "免费版",
+    "price": "0",
+    "period": "month",
+    "description": "体验 AI 大模型的入门之选",
+    "features": [
+      "每月可使用 100K Tokens",
+      "支持免费类大模型（如 Llama、Qwen 开源系列）",
+      "支持手动选择模型调度",
+      "基础用量统计",
+      "社区支持"
+    ],
+    "cta": "免费开始"
+  },
+  "proMonthly": {
+    "name": "月度订阅",
+    "price": "186",
+    "period": "month",
+    "badge": "recommended",
+    "description": "Everything in Free Plan, Plus",
+    "features": [
+      "每月可使用 500K Tokens",
+      "支持所有大模型（包括 GPT-4o、Claude 3.5、Gemini Pro 等高级模型）",
+      "智能模型调度（自动选择最优模型）",
+      "完整用量分析仪表盘",
+      "API Key 管理",
+      "优先邮件支持"
+    ],
+    "cta": "立即订阅"
+  },
+  "proYearly": {
+    "name": "年度订阅",
+    "price": "1,288",
+    "period": "year",
+    "badge": "save",
+    "description": "Everything in Pro Plan, with",
+    "features": [
+      "包含月度订阅所有功能",
+      "根据业务场景定制大模型调用策略",
+      "基于历史对话的长期记忆智能调度",
+      "业务场景专属模型推荐",
+      "专属客服支持"
+    ],
+    "cta": "立即订阅"
+  },
+  "enterprise": {
+    "name": "企业版",
+    "price": "300",
+    "period": "seat",
+    "description": "Everything in Pro Plan, with",
+    "features": [
+      "包含年度订阅所有功能",
+      "团队协作与集中管理",
+      "集中 API Key 管理与权限控制",
+      "用量审计日志",
+      "SSO 单点登录",
+      "PII 数据脱敏防护"
+    ],
+    "cta": "开始使用"
+  },
+  "custom": {
+    "name": "定制版",
+    "price": "联系我们",
+    "period": "custom",
+    "description": "Everything in Enterprise, with",
+    "features": [
+      "包含企业版所有功能",
+      "私有化部署支持",
+      "定制 SLA 服务等级协议",
+      "专属技术对接与业务咨询",
+      "无限 Tokens 用量",
+      "7×24 专属客户经理"
+    ],
+    "cta": "联系销售"
+  },
+  "note": "价格不含税费。用量以 Tokens 计算。",
+  "faq": {
+    "title": "常见问题",
+    "subtitle": "获取常见问题的解答",
+    "items": [
+      {
+        "question": "什么是 Tokens？如何计算用量？",
+        "answer": "Tokens 是大语言模型处理文本的基本单位。一般来说，1 个中文字约等于 1.5-2 个 Tokens，1 个英文单词约等于 1-2 个 Tokens。您可以在用量仪表盘中实时查看 Token 消耗情况。"
+      },
+      {
+        "question": "可以随时切换套餐吗？",
+        "answer": "当然可以！您可以随时升级或降级您的套餐。升级即时生效，降级将在当前计费周期结束后生效。"
+      },
+      {
+        "question": "超出用量限制会怎样？",
+        "answer": "当您的月度 Token 用量耗尽后，免费版用户将无法继续使用；付费版用户可以选择购买额外用量包或等待下月额度刷新。"
+      },
+      {
+        "question": "支持哪些付款方式？",
+        "answer": "我们支持支付宝、微信支付和企业银行转账。企业版客户还可以申请月结或季度结算。"
+      },
+      {
+        "question": "企业版和定制版有什么区别？",
+        "answer": "企业版适合中小型团队，提供标准化的企业级功能。定制版面向大型企业，支持私有化部署、定制 SLA 以及专属技术支持，可根据业务需求灵活定制。"
+      },
+      {
+        "question": "是否提供免费试用？",
+        "answer": "我们提供免费版供您体验基础功能。付费版暂不提供试用，但您可以随时从免费版升级，首月不满意可申请退款。"
+      }
+    ]
+  }
+  }
+}

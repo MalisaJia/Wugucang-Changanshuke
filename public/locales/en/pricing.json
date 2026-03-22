@@ -1,0 +1,121 @@
+{
+  "pricing": {
+  "title": "Pricing",
+  "subtitle": "Choose your plan and start your AI journey",
+  "forIndividuals": "For Individuals",
+  "forEnterprise": "For Enterprise",
+  "perMonth": "/month",
+  "perYear": "/year",
+  "perSeat": "/seat/month",
+  "recommended": "Recommended",
+  "save": "Save ¥944",
+  "includes": "Includes",
+  "everythingIn": "Everything included, plus",
+  "free": {
+    "name": "Free",
+    "price": "0",
+    "period": "month",
+    "description": "Get started with AI models",
+    "features": [
+      "100K Tokens per month",
+      "Free models (Llama, Qwen open source series)",
+      "Manual model selection",
+      "Basic usage statistics",
+      "Community support"
+    ],
+    "cta": "Get Started Free"
+  },
+  "proMonthly": {
+    "name": "Pro Monthly",
+    "price": "186",
+    "period": "month",
+    "badge": "recommended",
+    "description": "Everything in Free Plan, Plus",
+    "features": [
+      "500K Tokens per month",
+      "All models (GPT-4o, Claude 3.5, Gemini Pro, etc.)",
+      "Smart model routing (auto-select optimal model)",
+      "Full analytics dashboard",
+      "API Key management",
+      "Priority email support"
+    ],
+    "cta": "Subscribe"
+  },
+  "proYearly": {
+    "name": "Pro Yearly",
+    "price": "1,288",
+    "period": "year",
+    "badge": "save",
+    "description": "Everything in Pro Plan, with",
+    "features": [
+      "All Pro Monthly features included",
+      "Custom model routing strategies by use case",
+      "Long-term memory based intelligent routing",
+      "Business scenario model recommendations",
+      "Dedicated customer support"
+    ],
+    "cta": "Subscribe"
+  },
+  "enterprise": {
+    "name": "Enterprise",
+    "price": "300",
+    "period": "seat",
+    "description": "Everything in Pro Plan, with",
+    "features": [
+      "All Pro Yearly features included",
+      "Team collaboration & centralized management",
+      "Centralized API Key management & access control",
+      "Usage audit logs",
+      "SSO single sign-on",
+      "PII data masking protection"
+    ],
+    "cta": "Get Started"
+  },
+  "custom": {
+    "name": "Custom",
+    "price": "Contact Us",
+    "period": "custom",
+    "description": "Everything in Enterprise, with",
+    "features": [
+      "All Enterprise features included",
+      "Private deployment support",
+      "Custom SLA agreements",
+      "Dedicated technical support & consulting",
+      "Unlimited Tokens",
+      "24/7 dedicated account manager"
+    ],
+    "cta": "Contact Sales"
+  },
+  "note": "Prices exclude applicable taxes. Usage measured in Tokens.",
+  "faq": {
+    "title": "Frequently asked questions",
+    "subtitle": "Get answers to commonly asked questions",
+    "items": [
+      {
+        "question": "What are Tokens? How is usage calculated?",
+        "answer": "Tokens are the basic units that large language models use to process text. Generally, 1 Chinese character equals about 1.5-2 Tokens, and 1 English word equals about 1-2 Tokens. You can view your Token consumption in real-time on the usage dashboard."
+      },
+      {
+        "question": "Can I switch plans at any time?",
+        "answer": "Absolutely! You can upgrade or downgrade your plan at any time. Upgrades take effect immediately, while downgrades take effect at the end of your current billing cycle."
+      },
+      {
+        "question": "What happens when I exceed my usage limit?",
+        "answer": "When your monthly Token quota is exhausted, Free plan users will be unable to continue using the service. Paid plan users can purchase additional usage packs or wait for the next month's quota to refresh."
+      },
+      {
+        "question": "What payment methods are supported?",
+        "answer": "We support Alipay, WeChat Pay, and enterprise bank transfers. Enterprise customers can also apply for monthly or quarterly billing."
+      },
+      {
+        "question": "What's the difference between Enterprise and Custom plans?",
+        "answer": "Enterprise is suitable for small to medium teams with standardized enterprise features. Custom is designed for large enterprises, supporting private deployment, custom SLAs, and dedicated technical support, with flexible customization based on business needs."
+      },
+      {
+        "question": "Is there a free trial available?",
+        "answer": "We offer a Free plan to experience basic features. Paid plans don't have a trial period, but you can upgrade from Free at any time, and request a refund within the first month if not satisfied."
+      }
+    ]
+  }
+  }
+}

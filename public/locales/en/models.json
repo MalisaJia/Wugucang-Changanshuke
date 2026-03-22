@@ -1,0 +1,16 @@
+{
+  "models": {
+    "title": "Model Catalog",
+    "subtitle": "Browse and explore 250+ models from 8+ providers",
+    "searchPlaceholder": "Search models...",
+    "filters": "Filters",
+    "providers": "Providers",
+    "allProviders": "All Providers",
+    "contextWindow": "Context",
+    "pricing": "Pricing",
+    "clearFilters": "Clear filters",
+    "noResults": "No models found matching your filters.",
+    "modelsCount": "models",
+    "free": "Free"
+  }
+}

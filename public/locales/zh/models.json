@@ -1,0 +1,16 @@
+{
+  "models": {
+    "title": "模型目录",
+    "subtitle": "浏览和探索来自 8+ 服务商的 250+ 模型",
+    "searchPlaceholder": "搜索模型...",
+    "filters": "筛选",
+    "providers": "供应商",
+    "allProviders": "全部供应商",
+    "contextWindow": "上下文",
+    "pricing": "价格",
+    "clearFilters": "清除筛选",
+    "noResults": "没有找到匹配的模型。",
+    "modelsCount": "个模型",
+    "free": "免费"
+  }
+}

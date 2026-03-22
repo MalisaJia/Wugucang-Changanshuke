@@ -1,0 +1,102 @@
+{
+  "dashboard": {
+  "title": "Dashboard",
+  "overview": "Overview",
+  "apiKeys": "API Keys",
+  "analytics": "Analytics",
+  "settings": "Settings",
+  "auditLog": "Audit Log",
+  "welcome": "Welcome back",
+  "stats": {
+    "totalRequests": "Total Requests",
+    "activeKeys": "Active API Keys",
+    "currentPlan": "Current Plan",
+    "tokensUsed": "Tokens Used",
+    "thisMonth": "this month",
+    "modelsAccessed": "Models Accessed"
+  },
+  "quickActions": {
+    "title": "Quick Actions",
+    "createKey": "Create API Key",
+    "viewDocs": "View Documentation",
+    "viewAnalytics": "View Analytics",
+    "manageProviders": "Manage Providers"
+  },
+  "recentActivity": {
+    "title": "Recent Activity",
+    "noActivity": "No recent activity"
+  },
+  "analyticsPage": {
+    "title": "Usage Analytics",
+    "subtitle": "Monitor your API usage and performance",
+    "requestVolume": "Request Volume",
+    "tokenUsage": "Token Usage by Model",
+    "providerDistribution": "Provider Distribution",
+    "responseTime": "Avg Response Time",
+    "last7Days": "Last 7 Days",
+    "last30Days": "Last 30 Days",
+    "last90Days": "Last 90 Days",
+    "requests": "Requests",
+    "tokens": "Tokens",
+    "ms": "ms"
+  },
+  "keys": {
+    "title": "API Keys",
+    "subtitle": "Manage your API keys for accessing the platform",
+    "createKey": "Create New Key",
+    "name": "Name",
+    "keyPrefix": "Key",
+    "status": "Status",
+    "created": "Created",
+    "lastUsed": "Last Used",
+    "expires": "Expires",
+    "actions": "Actions",
+    "revoke": "Revoke",
+    "revokeConfirm": "Are you sure you want to revoke this key? This action cannot be undone.",
+    "noKeys": "No API keys yet. Create your first key to get started.",
+    "active": "Active",
+    "revoked": "Revoked",
+    "expired": "Expired",
+    "never": "Never",
+    "noExpiry": "No expiry",
+    "copySuccess": "API key copied to clipboard",
+    "copyWarning": "Make sure to copy your API key now. You won't be able to see it again!",
+    "createDialog": {
+      "title": "Create New API Key",
+      "nameLabel": "Key Name",
+      "namePlaceholder": "e.g., Production API Key",
+      "expiryLabel": "Expires In (days)",
+      "expiryPlaceholder": "Leave empty for no expiry",
+      "cancel": "Cancel",
+      "create": "Create Key"
+    },
+    "newKeyDialog": {
+      "title": "API Key Created",
+      "description": "Your new API key has been created. Copy it now — it won't be shown again.",
+      "done": "Done"
+    }
+  },
+  "settingsPage": {
+    "title": "Settings",
+    "subtitle": "Manage your account settings",
+    "profile": {
+      "title": "Profile",
+      "displayName": "Display Name",
+      "email": "Email",
+      "role": "Role",
+      "save": "Save Changes",
+      "saved": "Profile updated successfully"
+    },
+    "password": {
+      "title": "Change Password",
+      "current": "Current Password",
+      "new": "New Password",
+      "confirm": "Confirm New Password",
+      "change": "Change Password",
+      "changed": "Password changed successfully",
+      "mismatch": "Passwords do not match",
+      "minLength": "Password must be at least 8 characters"
+    }
+  }
+  }
+}

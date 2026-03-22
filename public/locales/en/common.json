@@ -1,0 +1,26 @@
+{
+  "nav": {
+    "models": "Models",
+    "pricing": "Pricing",
+    "docs": "Docs",
+    "dashboard": "Dashboard",
+    "signIn": "Sign In",
+    "getStarted": "Get Started"
+  },
+  "footer": {
+    "product": "Product",
+    "resources": "Resources",
+    "company": "Company",
+    "legal": "Legal",
+    "apiReference": "API Reference",
+    "documentation": "Documentation",
+    "status": "Status",
+    "blog": "Blog",
+    "about": "About",
+    "careers": "Careers",
+    "contact": "Contact",
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Service",
+    "copyright": "2026 WuguHub. All rights reserved."
+  }
+}
