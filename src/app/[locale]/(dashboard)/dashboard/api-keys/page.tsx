@@ -1,5 +1,7 @@
 'use client';
 
+export const runtime = 'edge';
+
 import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { listKeys, createKey, revokeKey, type APIKey } from '@/lib/api/keys';

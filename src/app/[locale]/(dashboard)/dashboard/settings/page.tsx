@@ -1,5 +1,7 @@
 'use client';
 
+export const runtime = 'edge';
+
 import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { getProfile, updateProfile, changePassword, type UserProfile } from '@/lib/api/user';

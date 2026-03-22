@@ -1,5 +1,7 @@
 "use client";
 
+export const runtime = 'edge';
+
 import { useTranslations } from "next-intl";
 import { Link, useRouter } from "@/lib/i18n/navigation";
 import { useState } from "react";

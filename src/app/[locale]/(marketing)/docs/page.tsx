@@ -1,5 +1,7 @@
 "use client";
 
+export const runtime = 'edge';
+
 import { useTranslations } from "next-intl";
 import { Link } from "@/lib/i18n/navigation";
 import { Key, Code, Zap, AlertTriangle, BookOpen, Rocket, Shield, FileCode } from "lucide-react";
