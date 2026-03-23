@@ -1,0 +1,408 @@
+package middleware
+
+import (
+	"encoding/json"
+	"fmt"
+	"log/slog"
+	"regexp"
+	"strings"
+
+	"github.com/gofiber/fiber/v2"
+
+	apierr "github.com/hi-ai/gateway/internal/errors"
+	"github.com/hi-ai/gateway/pkg/openai"
+)
+
+// PIIType represents a type of PII
+type PIIType string
+
+const (
+	PIIEmail      PIIType = "email"
+	PIIPhone      PIIType = "phone"
+	PIISSNOrID    PIIType = "ssn_id"
+	PIICreditCard PIIType = "credit_card"
+	PIIIPAddress  PIIType = "ip_address"
+)
+
+// PIIPattern defines a regex pattern for detecting PII
+type PIIPattern struct {
+	Type        PIIType
+	Pattern     *regexp.Regexp
+	Replacement string // mask replacement like "[EMAIL]", "[PHONE]"
+	Description string
+}
+
+// GuardrailMode defines behavior when PII is detected
+type GuardrailMode string
+
+const (
+	GuardrailBlock GuardrailMode = "block" // reject the request
+	GuardrailMask  GuardrailMode = "mask"  // replace PII with placeholders
+	GuardrailOff   GuardrailMode = "off"   // disabled
+)
+
+// GuardrailConfig is per-tenant guardrail configuration
+type GuardrailConfig struct {
+	Mode     GuardrailMode
+	Patterns []PIIType // which PII types to check
+}
+
+// PIIMatch represents a detected PII match
+type PIIMatch struct {
+	Type  PIIType
+	Count int
+}
+
+// Guardrail provides PII detection and masking capabilities
+type Guardrail struct {
+	patterns []PIIPattern
+	logger   *slog.Logger
+}
+
+// NewGuardrail creates a new Guardrail instance with compiled regex patterns
+func NewGuardrail(logger *slog.Logger) *Guardrail {
+	patterns := []PIIPattern{
+		{
+			Type:        PIIEmail,
+			Pattern:     regexp.MustCompile(`[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}`),
+			Replacement: "[EMAIL_REDACTED]",
+			Description: "Email address",
+		},
+		{
+			Type:        PIIPhone,
+			Pattern:     regexp.MustCompile(`(\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{4}`),
+			Replacement: "[PHONE_REDACTED]",
+			Description: "Phone number (international)",
+		},
+		{
+			Type:        PIISSNOrID,
+			Pattern:     regexp.MustCompile(`\b\d{3}-\d{2}-\d{4}\b`),
+			Replacement: "[ID_REDACTED]",
+			Description: "US Social Security Number",
+		},
+		{
+			Type:        PIISSNOrID,
+			Pattern:     regexp.MustCompile(`\b\d{6}(18|19|20)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])\d{3}[\dXx]\b`),
+			Replacement: "[ID_REDACTED]",
+			Description: "Chinese ID number",
+		},
+		{
+			Type:        PIICreditCard,
+			Pattern:     regexp.MustCompile(`\b(?:\d[ -]*?){13,19}\b`),
+			Replacement: "[CARD_REDACTED]",
+			Description: "Credit card number",
+		},
+		{
+			Type:        PIIIPAddress,
+			Pattern:     regexp.MustCompile(`\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b`),
+			Replacement: "[IP_REDACTED]",
+			Description: "IP address",
+		},
+	}
+
+	return &Guardrail{
+		patterns: patterns,
+		logger:   logger,
+	}
+}
+
+// Middleware returns a Fiber middleware handler for PII detection
+func (g *Guardrail) Middleware() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		// Only process POST requests to chat completions endpoint
+		if c.Method() != fiber.MethodPost {
+			return c.Next()
+		}
+
+		// Try to parse the request body as ChatCompletionRequest
+		var req openai.ChatCompletionRequest
+		if err := json.Unmarshal(c.Body(), &req); err != nil {
+			// If parsing fails, pass through (might not be a chat request)
+			return c.Next()
+		}
+
+		// If no messages, pass through
+		if len(req.Messages) == 0 {
+			return c.Next()
+		}
+
+		// Get guardrail config from tenant settings
+		config := g.getGuardrailConfig(c)
+
+		// If guardrail is off, pass through
+		if config.Mode == GuardrailOff {
+			return c.Next()
+		}
+
+		// Determine which patterns to check
+		activePatterns := g.getActivePatterns(config.Patterns)
+		if len(activePatterns) == 0 {
+			return c.Next()
+		}
+
+		// Scan all message content for PII
+		matches, hasMatches := g.scanMessages(req.Messages, activePatterns)
+
+		if !hasMatches {
+			return c.Next()
+		}
+
+		// Log the guardrail trigger
+		g.logTrigger(c, config.Mode, matches)
+
+		// Handle based on mode
+		if config.Mode == GuardrailBlock {
+			return g.handleBlock(c, matches)
+		}
+
+		// Mode is "mask" - replace PII with placeholders
+		return g.handleMask(c, &req, activePatterns)
+	}
+}
+
+// getGuardrailConfig retrieves guardrail configuration from tenant context
+func (g *Guardrail) getGuardrailConfig(c *fiber.Ctx) GuardrailConfig {
+	// Default config: guardrail off
+	config := GuardrailConfig{
+		Mode:     GuardrailOff,
+		Patterns: nil,
+	}
+
+	tc := GetTenantContext(c)
+	if tc == nil {
+		return config
+	}
+
+	// Check for tenant settings in Fiber locals
+	// The tenant settings would be set by an earlier middleware that loads tenant data
+	settings, ok := c.Locals("tenant_settings").(map[string]interface{})
+	if !ok {
+		return config
+	}
+
+	// Get guardrail config from settings
+	guardrailSettings, ok := settings["guardrail"].(map[string]interface{})
+	if !ok {
+		return config
+	}
+
+	// Parse mode
+	if mode, ok := guardrailSettings["mode"].(string); ok {
+		switch GuardrailMode(mode) {
+		case GuardrailBlock, GuardrailMask:
+			config.Mode = GuardrailMode(mode)
+		default:
+			config.Mode = GuardrailOff
+		}
+	}
+
+	// Parse patterns to check
+	if patterns, ok := guardrailSettings["patterns"].([]interface{}); ok {
+		for _, p := range patterns {
+			if pStr, ok := p.(string); ok {
+				config.Patterns = append(config.Patterns, PIIType(pStr))
+			}
+		}
+	}
+
+	return config
+}
+
+// getActivePatterns returns the patterns that should be checked based on config
+func (g *Guardrail) getActivePatterns(enabledTypes []PIIType) []PIIPattern {
+	// If no specific types configured, check all
+	if len(enabledTypes) == 0 {
+		return g.patterns
+	}
+
+	// Create a set of enabled types
+	enabledSet := make(map[PIIType]bool)
+	for _, t := range enabledTypes {
+		enabledSet[t] = true
+	}
+
+	// Filter patterns
+	var active []PIIPattern
+	for _, p := range g.patterns {
+		if enabledSet[p.Type] {
+			active = append(active, p)
+		}
+	}
+
+	return active
+}
+
+// scanMessages scans all message content for PII matches
+func (g *Guardrail) scanMessages(messages []openai.Message, patterns []PIIPattern) (map[PIIType]int, bool) {
+	matches := make(map[PIIType]int)
+	hasMatches := false
+
+	for _, msg := range messages {
+		content := g.extractContent(msg.Content)
+		if content == "" {
+			continue
+		}
+
+		for _, pattern := range patterns {
+			found := pattern.Pattern.FindAllString(content, -1)
+			if len(found) > 0 {
+				matches[pattern.Type] += len(found)
+				hasMatches = true
+			}
+		}
+	}
+
+	return matches, hasMatches
+}
+
+// extractContent extracts string content from a message's Content field
+// Content can be a string or an array of content parts
+func (g *Guardrail) extractContent(content interface{}) string {
+	if content == nil {
+		return ""
+	}
+
+	// Handle string content
+	if str, ok := content.(string); ok {
+		return str
+	}
+
+	// Handle array content (e.g., for multimodal messages)
+	if arr, ok := content.([]interface{}); ok {
+		var parts []string
+		for _, item := range arr {
+			if itemMap, ok := item.(map[string]interface{}); ok {
+				// Look for text content in the item
+				if text, ok := itemMap["text"].(string); ok {
+					parts = append(parts, text)
+				}
+			}
+		}
+		return strings.Join(parts, " ")
+	}
+
+	return ""
+}
+
+// logTrigger logs when guardrail is triggered
+func (g *Guardrail) logTrigger(c *fiber.Ctx, mode GuardrailMode, matches map[PIIType]int) {
+	tc := GetTenantContext(c)
+	tenantID := ""
+	userID := ""
+	if tc != nil {
+		tenantID = tc.TenantID
+		userID = tc.UserID
+	}
+
+	g.logger.Warn("guardrail triggered",
+		slog.String("action", string(mode)),
+		slog.String("tenant_id", tenantID),
+		slog.String("user_id", userID),
+		slog.String("request_id", c.Get("X-Request-ID")),
+		slog.Any("pii_detected", matches),
+	)
+}
+
+// handleBlock returns an error response when PII is detected in block mode
+func (g *Guardrail) handleBlock(c *fiber.Ctx, matches map[PIIType]int) error {
+	// Build a message describing what was detected
+	var detected []string
+	for piiType, count := range matches {
+		detected = append(detected, formatPIIDetection(piiType, count))
+	}
+
+	message := "Request blocked: PII detected in message content - " + strings.Join(detected, ", ")
+	e := apierr.New(apierr.CodeGuardrailViolation, message)
+	return c.Status(e.HTTPStatus).JSON(e.ToResponse())
+}
+
+// handleMask masks PII in the request and forwards it
+func (g *Guardrail) handleMask(c *fiber.Ctx, req *openai.ChatCompletionRequest, patterns []PIIPattern) error {
+	// Mask PII in all message content
+	for i := range req.Messages {
+		req.Messages[i].Content = g.maskContent(req.Messages[i].Content, patterns)
+	}
+
+	// Re-serialize the request body
+	newBody, err := json.Marshal(req)
+	if err != nil {
+		g.logger.Error("failed to marshal masked request", slog.String("error", err.Error()))
+		e := apierr.InternalError("failed to process request")
+		return c.Status(e.HTTPStatus).JSON(e.ToResponse())
+	}
+
+	// Set the new body
+	c.Request().SetBody(newBody)
+	c.Request().Header.SetContentLength(len(newBody))
+
+	return c.Next()
+}
+
+// maskContent masks PII in content, handling both string and array content
+func (g *Guardrail) maskContent(content interface{}, patterns []PIIPattern) interface{} {
+	if content == nil {
+		return nil
+	}
+
+	// Handle string content
+	if str, ok := content.(string); ok {
+		return g.maskString(str, patterns)
+	}
+
+	// Handle array content
+	if arr, ok := content.([]interface{}); ok {
+		result := make([]interface{}, len(arr))
+		for i, item := range arr {
+			if itemMap, ok := item.(map[string]interface{}); ok {
+				newMap := make(map[string]interface{})
+				for k, v := range itemMap {
+					if k == "text" {
+						if text, ok := v.(string); ok {
+							newMap[k] = g.maskString(text, patterns)
+						} else {
+							newMap[k] = v
+						}
+					} else {
+						newMap[k] = v
+					}
+				}
+				result[i] = newMap
+			} else {
+				result[i] = item
+			}
+		}
+		return result
+	}
+
+	return content
+}
+
+// maskString replaces all PII in a string with their respective placeholders
+func (g *Guardrail) maskString(s string, patterns []PIIPattern) string {
+	result := s
+	for _, pattern := range patterns {
+		result = pattern.Pattern.ReplaceAllString(result, pattern.Replacement)
+	}
+	return result
+}
+
+// formatPIIDetection formats a PII detection for error messages
+func formatPIIDetection(piiType PIIType, count int) string {
+	names := map[PIIType]string{
+		PIIEmail:      "email address",
+		PIIPhone:      "phone number",
+		PIISSNOrID:    "ID number",
+		PIICreditCard: "credit card number",
+		PIIIPAddress:  "IP address",
+	}
+
+	name, ok := names[piiType]
+	if !ok {
+		name = string(piiType)
+	}
+
+	if count == 1 {
+		return "1 " + name
+	}
+	return fmt.Sprintf("%d %ss", count, name)
+}

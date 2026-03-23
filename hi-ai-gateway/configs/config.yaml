@@ -1,0 +1,59 @@
+server:
+  host: "0.0.0.0"
+  port: 8080
+  read_timeout: 30
+  write_timeout: 60
+  idle_timeout: 120
+
+database:
+  host: "ep-round-heart-a1etiqaw-pooler.ap-southeast-1.aws.neon.tech"
+  port: 5432
+  user: "neondb_owner"
+  password: "npg_wySpABGm8gr5"
+  dbname: "neondb"
+  sslmode: require
+  extra_params: "channel_binding=require"
+  max_conns: 10
+  min_conns: 2
+
+redis:
+  addr: ${HI_AI_REDIS_ADDR:-localhost:6379}
+  password: ${HI_AI_REDIS_PASSWORD:-}
+  db: 0
+
+auth:
+  jwt_secret: ${HI_AI_JWT_SECRET:-change-me-in-production}
+  access_token_ttl: 3600
+  refresh_token_ttl: 604800
+
+providers:
+  - id: openai
+    name: OpenAI
+    api_key: "sk-gqM0aNqmwYBQnq7wx7RsE9m80Syf6BceMiMp8qEcL0D3yJ6N"
+    base_url: "https://chatapi.zjt66.top/v1"
+    enabled: true
+
+rate_limit:
+  enabled: true
+  default_rpm: 60
+  default_tpm: 100000
+
+metrics:
+  enabled: true
+  path: "/metrics"
+
+log:
+  level: "info"
+  format: "json"
+
+payment:
+  stripe:
+    secret_key: "sk_test_placeholder"
+    webhook_secret: "whsec_placeholder"
+  alipay:
+    app_id: ""
+    private_key: ""
+  wechat:
+    app_id: ""
+    mch_id: ""
+    api_key: ""

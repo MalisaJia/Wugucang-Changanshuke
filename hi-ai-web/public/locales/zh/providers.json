@@ -1,0 +1,26 @@
+{
+  "providers": {
+    "title": "大模型供应商",
+    "add": "添加供应商",
+    "edit": "编辑供应商",
+    "delete": "删除供应商",
+    "name": "供应商名称",
+    "baseUrl": "API 地址",
+    "apiKey": "API 密钥",
+    "models": "支持模型",
+    "priority": "优先级",
+    "weight": "权重",
+    "status": "状态",
+    "active": "已启用",
+    "inactive": "已禁用",
+    "save": "保存",
+    "cancel": "取消",
+    "deleteConfirm": "确定要删除此供应商吗？",
+    "noProviders": "暂无供应商配置，请添加您的第一个大模型供应商。",
+    "createSuccess": "供应商创建成功！",
+    "updateSuccess": "供应商更新成功！",
+    "deleteSuccess": "供应商删除成功！",
+    "templates": "快速模板",
+    "ownerOnly": "仅拥有者可管理供应商。"
+  }
+}

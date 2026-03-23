@@ -1,0 +1,4 @@
+DROP TABLE IF EXISTS usage_logs;
+DROP TABLE IF EXISTS payments;
+DROP TABLE IF EXISTS transactions;
+DROP TABLE IF EXISTS balances;
