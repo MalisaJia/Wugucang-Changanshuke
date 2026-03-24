@@ -15,10 +15,12 @@ type BaseAdapter struct {
 	client  *http.Client
 	baseURL string
 	apiKey  string
+	id      string   // provider ID
+	models  []string // supported models; empty means supports all
 }
 
 // NewBaseAdapter creates a base adapter with a configured HTTP client.
-func NewBaseAdapter(baseURL, apiKey string) BaseAdapter {
+func NewBaseAdapter(id, baseURL, apiKey string, models []string) BaseAdapter {
 	return BaseAdapter{
 		client: &http.Client{
 			Timeout: 120 * time.Second,
@@ -29,9 +31,16 @@ func NewBaseAdapter(baseURL, apiKey string) BaseAdapter {
 				IdleConnTimeout:     90 * time.Second,
 			},
 		},
+		id:      id,
 		baseURL: baseURL,
 		apiKey:  apiKey,
+		models:  models,
 	}
+}
+
+// ID returns the provider identifier.
+func (b *BaseAdapter) ID() string {
+	return b.id
 }
 
 // APIKey returns the configured API key.
@@ -42,6 +51,30 @@ func (b *BaseAdapter) APIKey() string {
 // BaseURL returns the configured base URL.
 func (b *BaseAdapter) BaseURL() string {
 	return b.baseURL
+}
+
+// Models returns the list of supported models.
+func (b *BaseAdapter) Models() []string {
+	return b.models
+}
+
+// SupportsModel returns true if this provider supports the given model.
+// If the provider's model list is empty, it supports all models.
+func (b *BaseAdapter) SupportsModel(model string) bool {
+	if len(b.models) == 0 {
+		return true // Empty list means supports all models
+	}
+	for _, m := range b.models {
+		if m == model {
+			return true
+		}
+	}
+	return false
+}
+
+// SupportsAllModels returns true if the provider has no specific model restrictions.
+func (b *BaseAdapter) SupportsAllModels() bool {
+	return len(b.models) == 0
 }
 
 // DoJSON performs a JSON request and decodes the response into result.

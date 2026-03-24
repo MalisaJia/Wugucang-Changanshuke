@@ -105,12 +105,12 @@ func New(cfg *config.Config) (*App, error) {
 		if !p.Enabled || p.APIKey == "" {
 			continue
 		}
-		switch p.ID {
-		case "openai":
-			registry.Register(openaiAdapter.New(p.BaseURL, p.APIKey))
-		// Phase 2: add other providers here
-		default:
-			logger.Warn("unknown provider, skipping", "provider", p.ID)
+		// All providers use OpenAI-compatible API, register with their unique ID
+		registry.Register(openaiAdapter.New(p.ID, p.BaseURL, p.APIKey, p.Models))
+		if len(p.Models) > 0 {
+			logger.Info("registered provider", "id", p.ID, "name", p.Name, "models", p.Models)
+		} else {
+			logger.Info("registered provider (supports all models)", "id", p.ID, "name", p.Name)
 		}
 	}
 

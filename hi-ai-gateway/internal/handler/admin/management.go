@@ -104,9 +104,9 @@ func (h *ManagementHandler) ListUsers(c *fiber.Ctx) error {
 // UserBalanceResponse represents a user's balance information.
 type UserBalanceResponse struct {
 	TenantID       string `json:"tenant_id"`
-	TokenBalance   int64  `json:"token_balance"`
-	TotalRecharged int64  `json:"total_recharged"`
-	TotalConsumed  int64  `json:"total_consumed"`
+	AmountBalance  int64  `json:"amount_balance"`  // Current balance in cents
+	TotalRecharged int64  `json:"total_recharged"` // Total recharged in cents
+	TotalConsumed  int64  `json:"total_consumed"`  // Total consumed in cents
 }
 
 // GetUserBalance handles GET /api/admin/users/:id/balance - Get user balance by tenant ID.
@@ -129,7 +129,7 @@ func (h *ManagementHandler) GetUserBalance(c *fiber.Ctx) error {
 		// Return zero balance if not found
 		return c.JSON(UserBalanceResponse{
 			TenantID:       tenantID,
-			TokenBalance:   0,
+			AmountBalance:  0,
 			TotalRecharged: 0,
 			TotalConsumed:  0,
 		})
@@ -137,7 +137,7 @@ func (h *ManagementHandler) GetUserBalance(c *fiber.Ctx) error {
 
 	return c.JSON(UserBalanceResponse{
 		TenantID:       tenantID,
-		TokenBalance:   balance.TokenBalance,
+		AmountBalance:  balance.AmountBalance,
 		TotalRecharged: balance.TotalRecharged,
 		TotalConsumed:  balance.TotalConsumed,
 	})

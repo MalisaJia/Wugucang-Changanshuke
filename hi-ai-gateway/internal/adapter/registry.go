@@ -23,6 +23,13 @@ type Provider interface {
 
 	// HealthCheck tests connectivity to the provider.
 	HealthCheck(ctx context.Context) error
+
+	// SupportsModel returns true if this provider supports the given model.
+	// If the provider's model list is empty, it supports all models.
+	SupportsModel(model string) bool
+
+	// SupportsAllModels returns true if the provider has no specific model restrictions.
+	SupportsAllModels() bool
 }
 
 // StreamEvent represents a single event in a streaming response.

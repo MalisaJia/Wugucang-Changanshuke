@@ -8,6 +8,7 @@ type ChatCompletionRequest struct {
 	TopP             *float64        `json:"top_p,omitempty"`
 	N                *int            `json:"n,omitempty"`
 	Stream           bool            `json:"stream,omitempty"`
+	StreamOptions    *StreamOptions  `json:"stream_options,omitempty"`
 	Stop             interface{}     `json:"stop,omitempty"`
 	MaxTokens        *int            `json:"max_tokens,omitempty"`
 	PresencePenalty  *float64        `json:"presence_penalty,omitempty"`
@@ -17,6 +18,11 @@ type ChatCompletionRequest struct {
 	ToolChoice       interface{}     `json:"tool_choice,omitempty"`
 	ResponseFormat   *ResponseFormat `json:"response_format,omitempty"`
 	Seed             *int            `json:"seed,omitempty"`
+}
+
+// StreamOptions contains options for streaming responses.
+type StreamOptions struct {
+	IncludeUsage bool `json:"include_usage,omitempty"`
 }
 
 // Message represents a chat message.

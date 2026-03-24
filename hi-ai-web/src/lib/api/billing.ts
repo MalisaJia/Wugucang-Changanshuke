@@ -2,10 +2,9 @@ import { apiClient } from './client';
 
 // Types
 export interface Balance {
-  tenant_id: string;
-  token_balance: number;
-  total_recharged: number;
-  total_consumed: number;
+  amount_balance: number;    // 余额（分）
+  total_recharged: number;   // 累计充值（分）
+  total_consumed: number;    // 累计消耗（分）
   updated_at: string;
 }
 
@@ -30,8 +29,7 @@ export interface TransactionList {
 export interface RechargePackage {
   id: string;
   name: string;
-  amount_cents: number;
-  token_amount: number;
+  amount_cents: number;      // 充值金额（分）
   currency: string;
 }
 

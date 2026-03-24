@@ -1,0 +1,46 @@
+{
+  "hero": {
+    "title": "大模型统一网关",
+    "subtitle": "一个 API 访问 250+ 模型，支持 8+ 服务商。智能路由、内置可靠性保障和企业级安全。",
+    "ctaPrimary": "获取 API Key",
+    "ctaSecondary": "探索模型"
+  },
+  "stats": {
+    "models": "250+",
+    "modelsLabel": "支持模型",
+    "providers": "8+",
+    "providersLabel": "服务商",
+    "routingModes": "4",
+    "routingModesLabel": "路由模式",
+    "uptime": "99.9%",
+    "uptimeLabel": "可用性"
+  },
+  "features": {
+    "title": "管理大模型所需的一切",
+    "unifiedApi": {
+      "title": "统一 API 接入",
+      "description": "通过统一接口访问所有主流模型。完全兼容 OpenAI SDK，开箱即用。"
+    },
+    "smartRouting": {
+      "title": "智能路由",
+      "description": "四种路由模式：单一、故障转移、负载均衡和条件路由。基于规则的智能模型选择。"
+    },
+    "reliability": {
+      "title": "内置可靠性",
+      "description": "自动重试、语义缓存、熔断器和限流。确保您的应用稳定运行。"
+    },
+    "security": {
+      "title": "企业级安全",
+      "description": "40+ 安全规则、PII 脱敏、RBAC 权限控制和完整审计日志。全方位保护您的数据。"
+    }
+  },
+  "providers": {
+    "title": "支持的服务商",
+    "subtitle": "通过一个网关连接全球领先的 AI 服务商。"
+  },
+  "cta": {
+    "title": "准备好开始了吗？",
+    "subtitle": "立即使用 WuguHub 开始构建。提供免费额度。",
+    "button": "免费注册"
+  }
+}

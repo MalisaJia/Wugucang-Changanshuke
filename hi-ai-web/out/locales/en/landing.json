@@ -1,0 +1,46 @@
+{
+  "hero": {
+    "title": "The Unified Gateway for LLMs",
+    "subtitle": "One API to access 250+ models from 8+ providers. Smart routing, built-in reliability, and enterprise-grade security.",
+    "ctaPrimary": "Get API Key",
+    "ctaSecondary": "Explore Models"
+  },
+  "stats": {
+    "models": "250+",
+    "modelsLabel": "Supported Models",
+    "providers": "8+",
+    "providersLabel": "Providers",
+    "routingModes": "4",
+    "routingModesLabel": "Routing Modes",
+    "uptime": "99.9%",
+    "uptimeLabel": "Uptime"
+  },
+  "features": {
+    "title": "Everything you need to manage LLMs",
+    "unifiedApi": {
+      "title": "One API for Any Model",
+      "description": "Access all major models through a single, unified interface. OpenAI SDK works out of the box."
+    },
+    "smartRouting": {
+      "title": "Smart Routing",
+      "description": "4 routing modes: single, fallback, load-balance, and conditional. Intelligent model selection based on your rules."
+    },
+    "reliability": {
+      "title": "Built-in Reliability",
+      "description": "Auto-retry, semantic caching, circuit breaker, and rate limiting. Keep your applications running smoothly."
+    },
+    "security": {
+      "title": "Enterprise Security",
+      "description": "40+ guardrail rules, PII masking, RBAC permissions, and full audit logging. Protect your data and users."
+    }
+  },
+  "providers": {
+    "title": "Supported Providers",
+    "subtitle": "Connect to the world's leading AI providers through a single gateway."
+  },
+  "cta": {
+    "title": "Ready to get started?",
+    "subtitle": "Start building with WuguHub today. Free tier available.",
+    "button": "Create Free Account"
+  }
+}

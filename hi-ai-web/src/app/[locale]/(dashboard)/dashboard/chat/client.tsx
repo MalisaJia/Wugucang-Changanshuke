@@ -20,17 +20,22 @@ import {
 // API Base URL
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
-// Predefined model list
+// Predefined model list - grouped by provider
 const MODELS = [
-  { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo', provider: 'OpenAI', icon: '🤖' },
-  { id: 'gpt-4', name: 'GPT-4', provider: 'OpenAI', icon: '🤖' },
-  { id: 'gpt-4o', name: 'GPT-4o', provider: 'OpenAI', icon: '🤖' },
-  { id: 'gpt-4o-mini', name: 'GPT-4o Mini', provider: 'OpenAI', icon: '🤖' },
-  { id: 'claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', provider: 'Anthropic', icon: '🧠' },
-  { id: 'gemini-pro', name: 'Gemini Pro', provider: 'Google', icon: '💎' },
-  { id: 'llama-3', name: 'Llama 3', provider: 'Meta', icon: '🦙' },
-  { id: 'qwen-plus', name: 'Qwen Plus', provider: 'Alibaba', icon: '🌐' },
+  // OpenAI Models
+  { id: 'gpt-4o', name: 'GPT-4o', provider: 'OpenAI', icon: '🤖', description: 'Flagship multimodal model' },
+  { id: 'gpt-4o-mini', name: 'GPT-4o Mini', provider: 'OpenAI', icon: '🤖', description: 'Lightweight & efficient' },
+  { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo', provider: 'OpenAI', icon: '🤖', description: 'Classic fast model' },
+  // Anthropic Models
+  { id: 'claude-opus-4-6', name: 'Claude Opus 4', provider: 'Anthropic', icon: '🧠', description: 'Most powerful reasoning' },
+  { id: 'claude-opus-4-6-thinking', name: 'Claude Opus 4 Thinking', provider: 'Anthropic', icon: '🧠', description: 'Extended thinking mode' },
+  { id: 'claude-sonnet-4-6-thinking', name: 'Claude Sonnet 4 Thinking', provider: 'Anthropic', icon: '🧠', description: 'Balanced with thinking' },
+  // Google Models
+  { id: 'gemini-2.5-flash-thinking', name: 'Gemini 2.5 Flash Thinking', provider: 'Google', icon: '💎', description: 'Fast reasoning model' },
 ];
+
+// Default model index (gpt-4o-mini for best value)
+const DEFAULT_MODEL_INDEX = 1;
 
 interface Message {
   id: string;
@@ -46,7 +51,7 @@ export default function ChatPage() {
   // State
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
-  const [selectedModel, setSelectedModel] = useState(MODELS[0]);
+  const [selectedModel, setSelectedModel] = useState(MODELS[DEFAULT_MODEL_INDEX]);
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -97,7 +102,7 @@ export default function ChatPage() {
       return;
     }
     
-    if (balance && balance.token_balance <= 0) {
+    if (balance && balance.amount_balance <= 0) {
       setError(t('insufficientBalance'));
       return;
     }
@@ -240,15 +245,13 @@ export default function ChatPage() {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  // Format balance
-  const formatBalance = (num: number) => {
-    if (num >= 1000000) return `${(num / 1000000).toFixed(2)}M`;
-    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
-    return num.toString();
+  // Format balance (cents to yuan)
+  const formatCurrency = (cents: number) => {
+    return `¥${(cents / 100).toFixed(2)}`;
   };
 
   // Check if can chat
-  const canChat = !balanceLoading && balance && balance.token_balance > 0;
+  const canChat = !balanceLoading && balance && balance.amount_balance > 0;
 
   return (
     <div className="flex flex-col h-[calc(100vh-8rem)]">
@@ -287,9 +290,9 @@ export default function ChatPage() {
                         }`}
                       >
                         <span className="text-lg">{model.icon}</span>
-                        <div>
+                        <div className="flex-1 min-w-0">
                           <p className="font-medium text-sm">{model.name}</p>
-                          <p className="text-xs text-muted-foreground">{model.provider}</p>
+                          <p className="text-xs text-muted-foreground truncate">{model.provider} · {model.description}</p>
                         </div>
                       </button>
                     ))}
@@ -320,14 +323,14 @@ export default function ChatPage() {
             <span className="text-sm text-muted-foreground">...</span>
           ) : (
             <span className="text-sm font-bold text-green-500">
-              {balance ? formatBalance(balance.token_balance) : '0'} {t('tokens')}
+              {balance ? formatCurrency(balance.amount_balance) : '¥0.00'}
             </span>
           )}
         </Link>
       </div>
 
       {/* Alert Messages */}
-      {balance && balance.token_balance <= 0 && !balanceLoading && (
+      {balance && balance.amount_balance <= 0 && !balanceLoading && (
         <div className="mt-4 p-4 bg-red-500/10 border border-red-500/50 rounded-lg flex items-center justify-between">
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-red-500" />

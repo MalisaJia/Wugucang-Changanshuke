@@ -12,7 +12,7 @@ import (
 func main() {
 	dsn := "postgres://neondb_owner:npg_wySpABGm8gr5@ep-round-heart-a1etiqaw-pooler.ap-southeast-1.aws.neon.tech:5432/neondb?sslmode=require&channel_binding=require"
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	conn, err := pgx.Connect(ctx, dsn)
@@ -22,34 +22,49 @@ func main() {
 	}
 	defer conn.Close(ctx)
 
-	rows, err := conn.Query(ctx, "SELECT id, email, display_name, role, status, created_at FROM users ORDER BY created_at DESC LIMIT 10")
+	// Fix usage_logs foreign key constraint to allow NULL api_key_id
+	fmt.Println("Applying migration: allow api_key_id to be NULL...")
+
+	migrationSQL := `
+		ALTER TABLE usage_logs ALTER COLUMN api_key_id DROP NOT NULL;
+		ALTER TABLE usage_logs DROP CONSTRAINT IF EXISTS usage_logs_api_key_id_fkey;
+		ALTER TABLE usage_logs ADD CONSTRAINT usage_logs_api_key_id_fkey 
+		  FOREIGN KEY (api_key_id) REFERENCES api_keys(id) ON DELETE SET NULL;
+	`
+
+	_, err = conn.Exec(ctx, migrationSQL)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "migration error: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Println("Migration applied successfully!")
+
+	// Verify the change
+	fmt.Println("\nVerifying usage_logs schema...")
+	rows, err := conn.Query(ctx, `
+		SELECT column_name, is_nullable, data_type 
+		FROM information_schema.columns 
+		WHERE table_name = 'usage_logs' AND column_name = 'api_key_id'
+	`)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "query error: %v\n", err)
 		os.Exit(1)
 	}
-	defer rows.Close()
-
-	count := 0
 	for rows.Next() {
-		var id, email, role, status string
-		var displayName *string
-		var createdAt time.Time
-		if err := rows.Scan(&id, &email, &displayName, &role, &status, &createdAt); err != nil {
-			fmt.Fprintf(os.Stderr, "scan error: %v\n", err)
-			continue
-		}
-		name := "<nil>"
-		if displayName != nil {
-			name = *displayName
-		}
-		fmt.Printf("User #%d:\n  ID:      %s\n  Email:   %s\n  Name:    %s\n  Role:    %s\n  Status:  %s\n  Created: %s\n\n",
-			count+1, id, email, name, role, status, createdAt.Format("2006-01-02 15:04:05"))
-		count++
+		var colName, isNullable, dataType string
+		rows.Scan(&colName, &isNullable, &dataType)
+		fmt.Printf("Column: %s, Nullable: %s, Type: %s\n", colName, isNullable, dataType)
 	}
+	rows.Close()
 
-	if count == 0 {
-		fmt.Println("No users found in the database.")
-	} else {
-		fmt.Printf("Total: %d user(s)\n", count)
+	// Query usage stats
+	fmt.Println("\nUsage logs by model:")
+	rows2, _ := conn.Query(ctx, `SELECT model, COUNT(*), COALESCE(SUM(tokens_in),0), COALESCE(SUM(tokens_out),0) FROM usage_logs GROUP BY model`)
+	for rows2.Next() {
+		var model string
+		var count, tokensIn, tokensOut int64
+		rows2.Scan(&model, &count, &tokensIn, &tokensOut)
+		fmt.Printf("Model: %s, Count: %d, TokensIn: %d, TokensOut: %d\n", model, count, tokensIn, tokensOut)
 	}
+	rows2.Close()
 }

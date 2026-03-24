@@ -181,21 +181,52 @@ func (s *ChatService) CompleteStream(ctx context.Context, tc *middleware.TenantC
 
 // resolveTargets finds the routing targets for a given model.
 // Uses the configured routing mode and the router infrastructure.
+// Only providers that support the requested model are included.
 func (s *ChatService) resolveTargets(model string) []domain.RoutingTarget {
-	// Build targets from all registered providers
+	// Get all registered providers
 	providers := s.registry.ListProviders()
 	if len(providers) == 0 {
 		return nil
 	}
 
-	targets := make([]domain.RoutingTarget, 0, len(providers))
+	// Filter providers that support the requested model
+	var targets []domain.RoutingTarget
 	for _, p := range providers {
-		targets = append(targets, domain.RoutingTarget{
-			ProviderID: p.ID(),
-			ModelID:    model,
-			Weight:     1, // Default weight
-		})
+		if p.SupportsModel(model) {
+			targets = append(targets, domain.RoutingTarget{
+				ProviderID: p.ID(),
+				ModelID:    model,
+				Weight:     1,
+			})
+			s.logger.Debug("provider supports model", "provider", p.ID(), "model", model)
+		}
 	}
+
+	// If no provider explicitly supports this model, fall back to providers with empty models list
+	if len(targets) == 0 {
+		for _, p := range providers {
+			if p.SupportsAllModels() {
+				targets = append(targets, domain.RoutingTarget{
+					ProviderID: p.ID(),
+					ModelID:    model,
+					Weight:     1,
+				})
+				s.logger.Debug("fallback to provider with no model restrictions", "provider", p.ID(), "model", model)
+			}
+		}
+	}
+
+	if len(targets) == 0 {
+		s.logger.Warn("no provider found for model", "model", model)
+		return nil
+	}
+
+	// Log routing decision
+	providerIDs := make([]string, len(targets))
+	for i, t := range targets {
+		providerIDs[i] = t.ProviderID
+	}
+	s.logger.Info("routing model to providers", "model", model, "providers", providerIDs)
 
 	// Create routing rule with the targets
 	rule := &domain.RoutingRule{
@@ -272,7 +303,7 @@ func (s *ChatService) recordUsageAndDeduct(tc *middleware.TenantContext, model s
 			"error", err,
 		)
 	} else {
-		s.logger.Debug("usage recorded and balance deducted",
+		s.logger.Info("usage recorded and balance deducted",
 			"tenant_id", tc.TenantID,
 			"model", model,
 			"prompt_tokens", promptTokens,
@@ -359,7 +390,7 @@ func (s *ChatService) CheckBalance(ctx context.Context, tenantID string) error {
 		return nil // Fail-open on errors
 	}
 
-	if balance.TokenBalance <= 0 {
+	if balance.AmountBalance <= 0 {
 		return apierr.ErrInsufficientBalance
 	}
 

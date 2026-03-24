@@ -1,0 +1,32 @@
+{
+  "team": {
+    "title": "Team Members",
+    "invite": "Invite Member",
+    "search": "Search by name or email...",
+    "filterRole": "Filter by role",
+    "allRoles": "All Roles",
+    "name": "Name",
+    "email": "Email",
+    "role": "Role",
+    "joinedAt": "Joined",
+    "actions": "Actions",
+    "you": "(You)",
+    "inviteTitle": "Invite New Member",
+    "displayName": "Display Name",
+    "password": "Password",
+    "selectRole": "Select Role",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "deleteTitle": "Delete Member",
+    "deleteConfirm": "Are you sure you want to remove this member? This action cannot be undone.",
+    "delete": "Delete",
+    "noMembers": "No team members found.",
+    "inviteSuccess": "Member invited successfully!",
+    "updateSuccess": "Role updated successfully!",
+    "deleteSuccess": "Member removed successfully!",
+    "owner": "Owner",
+    "admin": "Admin",
+    "member": "Member",
+    "viewer": "Viewer"
+  }
+}

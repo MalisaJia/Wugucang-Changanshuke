@@ -14,17 +14,13 @@ type Adapter struct {
 }
 
 // New creates a new OpenAI adapter.
-func New(baseURL, apiKey string) *Adapter {
+func New(id, baseURL, apiKey string, models []string) *Adapter {
 	if baseURL == "" {
 		baseURL = "https://api.openai.com/v1"
 	}
 	return &Adapter{
-		BaseAdapter: adapter.NewBaseAdapter(baseURL, apiKey),
+		BaseAdapter: adapter.NewBaseAdapter(id, baseURL, apiKey, models),
 	}
-}
-
-func (a *Adapter) ID() string {
-	return "openai"
 }
 
 func (a *Adapter) headers() map[string]string {
@@ -50,6 +46,8 @@ func (a *Adapter) ChatCompletionStream(ctx context.Context, req *oai.ChatComplet
 	// Ensure stream is true for streaming requests
 	reqCopy := *req
 	reqCopy.Stream = true
+	// Request usage information in the final chunk
+	reqCopy.StreamOptions = &oai.StreamOptions{IncludeUsage: true}
 
 	body, err := a.DoStream(ctx, "POST", "/chat/completions", &reqCopy, a.headers())
 	if err != nil {

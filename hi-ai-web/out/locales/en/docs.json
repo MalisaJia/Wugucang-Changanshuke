@@ -1,0 +1,53 @@
+{
+  "docs": {
+  "title": "Documentation",
+  "subtitle": "Everything you need to integrate with the WuguHub API",
+  "quickStart": {
+    "title": "Quick Start",
+    "description": "Get up and running in minutes",
+    "step1Title": "Get your API key",
+    "step1Desc": "Sign up and create an API key from your dashboard",
+    "step2Title": "Install SDK or use cURL",
+    "step2Desc": "Use any OpenAI-compatible SDK or make direct HTTP requests",
+    "step3Title": "Make your first request",
+    "step3Desc": "Send a chat completion request to our unified endpoint"
+  },
+  "authentication": {
+    "title": "Authentication",
+    "description": "All API requests require authentication using a Bearer token",
+    "headerExample": "Authorization: Bearer hiai-your-api-key",
+    "note": "Keep your API keys secure. Never expose them in client-side code."
+  },
+  "apiReference": {
+    "title": "API Reference",
+    "chatCompletions": {
+      "title": "Chat Completions",
+      "description": "Create a chat completion with the specified model",
+      "endpoint": "POST /v1/chat/completions",
+      "parameters": "model (required), messages (required), temperature, top_p, max_tokens, stream"
+    },
+    "models": {
+      "title": "List Models",
+      "description": "List all available models",
+      "endpoint": "GET /v1/models"
+    }
+  },
+  "rateLimits": {
+    "title": "Rate Limits",
+    "description": "Rate limits vary by plan and are applied per API key",
+    "headers": "Check X-RateLimit-Limit, X-RateLimit-Remaining, and X-RateLimit-Reset headers"
+  },
+  "errorCodes": {
+    "title": "Error Codes",
+    "description": "Standard error responses follow the OpenAI error format",
+    "codes": {
+      "400": "Bad Request — Invalid parameters",
+      "401": "Unauthorized — Invalid or missing API key",
+      "404": "Not Found — Model or resource not found",
+      "429": "Rate Limited — Too many requests",
+      "500": "Internal Error — Server error",
+      "502": "Provider Error — Upstream LLM provider error"
+    }
+  }
+  }
+}

@@ -36,9 +36,9 @@ func NewBillingHandler(billingSvc *service.BillingService, providers map[string]
 
 // BalanceResponse represents the balance response.
 type BalanceResponse struct {
-	TokenBalance   int64 `json:"token_balance"`
-	TotalRecharged int64 `json:"total_recharged"`
-	TotalConsumed  int64 `json:"total_consumed"`
+	AmountBalance  int64 `json:"amount_balance"`  // Current balance in cents
+	TotalRecharged int64 `json:"total_recharged"` // Total recharged in cents
+	TotalConsumed  int64 `json:"total_consumed"`  // Total consumed in cents
 }
 
 // GetBalance handles GET /api/billing/balance - Query current balance.
@@ -60,14 +60,14 @@ func (h *BillingHandler) GetBalance(c *fiber.Ctx) error {
 		h.logger.Error("failed to get balance", "error", err, "tenant_id", tc.TenantID)
 		// If balance not found, return zero balance
 		return c.JSON(BalanceResponse{
-			TokenBalance:   0,
+			AmountBalance:  0,
 			TotalRecharged: 0,
 			TotalConsumed:  0,
 		})
 	}
 
 	return c.JSON(BalanceResponse{
-		TokenBalance:   balance.TokenBalance,
+		AmountBalance:  balance.AmountBalance,
 		TotalRecharged: balance.TotalRecharged,
 		TotalConsumed:  balance.TotalConsumed,
 	})
@@ -260,10 +260,12 @@ type UsageSummaryResponse struct {
 	TodayTokensOut   int64               `json:"today_tokens_out"`
 	TodayTokensTotal int64               `json:"today_tokens_total"`
 	TodayRequests    int64               `json:"today_requests"`
+	TodayCostCents   int64               `json:"today_cost_cents"`  // Total cost today in cents
 	MonthTokensIn    int64               `json:"month_tokens_in"`
 	MonthTokensOut   int64               `json:"month_tokens_out"`
 	MonthTokensTotal int64               `json:"month_tokens_total"`
 	MonthRequests    int64               `json:"month_requests"`
+	MonthCostCents   int64               `json:"month_cost_cents"`  // Total cost this month in cents
 	DailyStats       []postgres.DailyStats `json:"daily_stats"`
 	ModelStats       []postgres.ModelStats `json:"model_stats"`
 }
@@ -307,6 +309,11 @@ func (h *BillingHandler) GetUsageSummary(c *fiber.Ctx) error {
 		h.logger.Error("failed to get today's request count", "error", err, "tenant_id", tc.TenantID)
 		todayRequests = 0
 	}
+	todayCost, err := h.billingSvc.GetCostSummary(c.Context(), tenantID, startOfToday)
+	if err != nil {
+		h.logger.Error("failed to get today's cost summary", "error", err, "tenant_id", tc.TenantID)
+		todayCost = 0
+	}
 
 	// Get month's stats
 	monthIn, monthOut, err := h.billingSvc.GetUsageSummary(c.Context(), tenantID, startOfMonth)
@@ -318,6 +325,11 @@ func (h *BillingHandler) GetUsageSummary(c *fiber.Ctx) error {
 	if err != nil {
 		h.logger.Error("failed to get month's request count", "error", err, "tenant_id", tc.TenantID)
 		monthRequests = 0
+	}
+	monthCost, err := h.billingSvc.GetCostSummary(c.Context(), tenantID, startOfMonth)
+	if err != nil {
+		h.logger.Error("failed to get month's cost summary", "error", err, "tenant_id", tc.TenantID)
+		monthCost = 0
 	}
 
 	// Get daily stats for the chart
@@ -339,10 +351,12 @@ func (h *BillingHandler) GetUsageSummary(c *fiber.Ctx) error {
 		TodayTokensOut:   todayOut,
 		TodayTokensTotal: todayIn + todayOut,
 		TodayRequests:    todayRequests,
+		TodayCostCents:   todayCost,
 		MonthTokensIn:    monthIn,
 		MonthTokensOut:   monthOut,
 		MonthTokensTotal: monthIn + monthOut,
 		MonthRequests:    monthRequests,
+		MonthCostCents:   monthCost,
 		DailyStats:       dailyStats,
 		ModelStats:       modelStats,
 	})

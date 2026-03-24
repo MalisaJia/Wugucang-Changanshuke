@@ -10,6 +10,7 @@ import {
   type Balance,
   type RechargePackage,
 } from '@/lib/api/billing';
+import { getUsageSummary, type UsageSummary } from '@/lib/api/analytics';
 import { ApiClientError } from '@/lib/api/client';
 import {
   Wallet,
@@ -18,6 +19,9 @@ import {
   Check,
   ArrowRight,
   Loader2,
+  TrendingDown,
+  Activity,
+  Coins,
 } from 'lucide-react';
 
 // Payment method icons as SVG components
@@ -35,10 +39,16 @@ const WechatIcon = () => (
 
 type PaymentMethod = 'stripe' | 'alipay' | 'wechat';
 
+// 金额格式化工具函数：分 → 元
+function formatCurrency(cents: number): string {
+  return `¥${(cents / 100).toFixed(2)}`;
+}
+
 export default function BillingClient() {
   const t = useTranslations('billing');
   const [balance, setBalance] = useState<Balance | null>(null);
   const [packages, setPackages] = useState<RechargePackage[]>([]);
+  const [usageSummary, setUsageSummary] = useState<UsageSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,12 +67,14 @@ export default function BillingClient() {
     try {
       setLoading(true);
       setError(null);
-      const [balanceData, packagesData] = await Promise.all([
+      const [balanceData, packagesData, usageData] = await Promise.all([
         getBalance(),
         getPackages(),
+        getUsageSummary(30).catch(() => null),
       ]);
       setBalance(balanceData);
       setPackages(packagesData);
+      setUsageSummary(usageData);
       // Auto-select first package
       if (packagesData.length > 0) {
         setSelectedPackage(packagesData[0].id);
@@ -92,19 +104,12 @@ export default function BillingClient() {
     }
   };
 
-  const formatPrice = (cents: number, currency: string) => {
-    const amount = cents / 100;
-    if (currency === 'CNY') {
-      return `¥${amount.toFixed(2)}`;
-    }
-    return `$${amount.toFixed(2)}`;
-  };
+  // 低余额判断：余额小于 ¥10.00（1000分）
+  const isLowBalance = balance && balance.amount_balance < 1000;
 
-  const formatTokens = (num: number) => {
-    return num.toLocaleString();
-  };
-
-  const isLowBalance = balance && balance.token_balance < 10000;
+  // 获取选中套餐的金额
+  const selectedPkg = packages.find(p => p.id === selectedPackage);
+  const selectedAmount = selectedPkg ? selectedPkg.amount_cents : 0;
 
   if (loading) {
     return (
@@ -120,7 +125,7 @@ export default function BillingClient() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">{t('title')}</h1>
-          <p className="text-muted-foreground mt-1">{t('selectPackage')}</p>
+          <p className="text-muted-foreground mt-1">{t('subtitle')}</p>
         </div>
         <Link
           href="/dashboard/billing/transactions"
@@ -138,36 +143,52 @@ export default function BillingClient() {
         </div>
       )}
 
-      {/* Balance Card */}
+      {/* Account Stats Card - 熵流风格蓝色渐变背景 */}
       {balance && (
-        <div className="bg-card border border-border rounded-lg p-6">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-            {/* Current Balance */}
-            <div className="flex items-center gap-4">
-              <div className="p-4 rounded-full bg-primary/10">
-                <Wallet className="h-8 w-8 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">{t('balance')}</p>
-                <p className="text-4xl font-bold mt-1">
-                  {formatTokens(balance.token_balance)}
-                  <span className="text-lg font-normal text-muted-foreground ml-2">{t('tokens')}</span>
+        <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-400 p-6 text-white shadow-lg">
+          {/* 背景装饰 */}
+          <div className="absolute inset-0 overflow-hidden">
+            <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
+            <div className="absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
+          </div>
+          
+          <div className="relative">
+            <h2 className="text-lg font-semibold mb-6 flex items-center gap-2">
+              <Wallet className="h-5 w-5" />
+              {t('accountStats')}
+            </h2>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+              {/* 当前余额 */}
+              <div className="flex flex-col">
+                <div className="flex items-center gap-2 text-white/80 text-sm mb-2">
+                  <Coins className="h-4 w-4" />
+                  {t('balance')}
+                </div>
+                <p className="text-3xl font-bold">
+                  {formatCurrency(balance.amount_balance)}
                 </p>
               </div>
-            </div>
-
-            {/* Stats */}
-            <div className="flex gap-8">
-              <div>
-                <p className="text-sm text-muted-foreground">{t('totalRecharged')}</p>
-                <p className="text-xl font-semibold text-green-500">
-                  +{formatTokens(balance.total_recharged)}
+              
+              {/* 历史消耗 */}
+              <div className="flex flex-col">
+                <div className="flex items-center gap-2 text-white/80 text-sm mb-2">
+                  <TrendingDown className="h-4 w-4" />
+                  {t('totalConsumed')}
+                </div>
+                <p className="text-3xl font-bold">
+                  {formatCurrency(balance.total_consumed)}
                 </p>
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">{t('totalConsumed')}</p>
-                <p className="text-xl font-semibold text-red-500">
-                  -{formatTokens(balance.total_consumed)}
+              
+              {/* 请求次数 */}
+              <div className="flex flex-col">
+                <div className="flex items-center gap-2 text-white/80 text-sm mb-2">
+                  <Activity className="h-4 w-4" />
+                  {t('requestCount')}
+                </div>
+                <p className="text-3xl font-bold">
+                  {usageSummary ? usageSummary.month_requests.toLocaleString() : '—'}
                 </p>
               </div>
             </div>
@@ -175,122 +196,166 @@ export default function BillingClient() {
 
           {/* Low balance warning */}
           {isLowBalance && (
-            <div className="mt-4 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20 flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-yellow-500 shrink-0" />
-              <p className="text-sm text-yellow-500">{t('lowBalance')}</p>
+            <div className="relative mt-4 p-3 rounded-lg bg-white/20 backdrop-blur-sm flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 shrink-0" />
+              <p className="text-sm">{t('lowBalance')}</p>
             </div>
           )}
         </div>
       )}
 
-      {/* Packages Grid */}
-      <div>
-        <h2 className="text-lg font-semibold mb-4">{t('selectPackage')}</h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {packages.map((pkg) => (
-            <button
-              key={pkg.id}
-              onClick={() => setSelectedPackage(pkg.id)}
-              className={`
-                relative p-6 rounded-lg border-2 text-left transition-all
-                ${
-                  selectedPackage === pkg.id
-                    ? 'border-primary bg-primary/5'
-                    : 'border-border hover:border-primary/50 bg-card'
-                }
-              `}
-            >
-              {selectedPackage === pkg.id && (
-                <div className="absolute top-3 right-3">
-                  <Check className="h-5 w-5 text-primary" />
+      {/* Recharge Section */}
+      <div className="grid gap-8 lg:grid-cols-3">
+        {/* Left: Package Selection */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Packages Grid */}
+          <div>
+            <h2 className="text-lg font-semibold mb-4">{t('selectAmount')}</h2>
+            <div className="grid gap-4 grid-cols-2 sm:grid-cols-3">
+              {packages.map((pkg) => (
+                <button
+                  key={pkg.id}
+                  onClick={() => setSelectedPackage(pkg.id)}
+                  className={`
+                    relative p-5 rounded-xl border-2 text-center transition-all
+                    ${
+                      selectedPackage === pkg.id
+                        ? 'border-primary bg-primary/5 shadow-md'
+                        : 'border-border hover:border-primary/50 bg-card'
+                    }
+                  `}
+                >
+                  {selectedPackage === pkg.id && (
+                    <div className="absolute top-2 right-2">
+                      <div className="h-5 w-5 rounded-full bg-primary flex items-center justify-center">
+                        <Check className="h-3 w-3 text-primary-foreground" />
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* 硬币图标 */}
+                  <div className="flex justify-center mb-3">
+                    <div className={`p-2 rounded-lg ${selectedPackage === pkg.id ? 'bg-primary/20' : 'bg-muted'}`}>
+                      <Coins className={`h-5 w-5 ${selectedPackage === pkg.id ? 'text-primary' : 'text-muted-foreground'}`} />
+                    </div>
+                  </div>
+                  
+                  {/* 金额 */}
+                  <p className={`text-2xl font-bold ${selectedPackage === pkg.id ? 'text-primary' : ''}`}>
+                    {(pkg.amount_cents / 100).toFixed(0)} ¥
+                  </p>
+                  
+                  {/* 实付金额 */}
+                  <p className="text-xs text-muted-foreground mt-2">
+                    {t('actualPay')} {formatCurrency(pkg.amount_cents)}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Payment Methods */}
+          <div>
+            <h2 className="text-lg font-semibold mb-4">{t('selectPayment')}</h2>
+            <div className="grid gap-4 sm:grid-cols-3">
+              {/* Credit Card (Stripe) */}
+              <button
+                onClick={() => setSelectedMethod('stripe')}
+                className={`
+                  flex items-center gap-3 p-4 rounded-lg border-2 transition-all
+                  ${
+                    selectedMethod === 'stripe'
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-primary/50 bg-card'
+                  }
+                `}
+              >
+                <div className="p-2 rounded-lg bg-blue-500/10">
+                  <CreditCard className="h-5 w-5 text-blue-500" />
                 </div>
+                <div className="text-left">
+                  <p className="font-medium">{t('creditCard')}</p>
+                </div>
+                {selectedMethod === 'stripe' && (
+                  <Check className="h-5 w-5 text-primary ml-auto" />
+                )}
+              </button>
+
+              {/* Alipay - Disabled */}
+              <div
+                className="flex items-center gap-3 p-4 rounded-lg border-2 border-border bg-card opacity-50 cursor-not-allowed"
+              >
+                <div className="p-2 rounded-lg bg-blue-600/10">
+                  <AlipayIcon />
+                </div>
+                <div className="text-left">
+                  <p className="font-medium">{t('alipay')}</p>
+                  <p className="text-xs text-muted-foreground">{t('comingSoon')}</p>
+                </div>
+              </div>
+
+              {/* WeChat Pay - Disabled */}
+              <div
+                className="flex items-center gap-3 p-4 rounded-lg border-2 border-border bg-card opacity-50 cursor-not-allowed"
+              >
+                <div className="p-2 rounded-lg bg-green-500/10">
+                  <WechatIcon />
+                </div>
+                <div className="text-left">
+                  <p className="font-medium">{t('wechat')}</p>
+                  <p className="text-xs text-muted-foreground">{t('comingSoon')}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Summary & Checkout */}
+        <div className="lg:col-span-1">
+          <div className="sticky top-4 bg-card border border-border rounded-xl p-6 space-y-6">
+            <h2 className="text-lg font-semibold">{t('orderSummary')}</h2>
+            
+            <div className="space-y-4">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">{t('rechargeAmount')}</span>
+                <span className="font-medium">{formatCurrency(selectedAmount)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">{t('discount')}</span>
+                <span className="font-medium text-green-500">-¥0.00</span>
+              </div>
+              <div className="border-t border-border pt-4">
+                <div className="flex justify-between items-center">
+                  <span className="font-medium">{t('actualPay')}</span>
+                  <span className="text-2xl font-bold text-primary">{formatCurrency(selectedAmount)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Recharge Button */}
+            <button
+              onClick={handleRecharge}
+              disabled={!selectedPackage || selectedMethod !== 'stripe' || processing}
+              className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3 text-base font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {processing ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  {t('processing')}
+                </>
+              ) : (
+                <>
+                  <CreditCard className="h-5 w-5" />
+                  {t('rechargeNow')}
+                </>
               )}
-              <p className="text-2xl font-bold text-primary">
-                {formatPrice(pkg.amount_cents, pkg.currency)}
-              </p>
-              <p className="text-lg font-semibold mt-2">
-                {formatTokens(pkg.token_amount)} {t('tokens')}
-              </p>
-              <p className="text-sm text-muted-foreground mt-1">{pkg.name}</p>
             </button>
-          ))}
-        </div>
-      </div>
 
-      {/* Payment Methods */}
-      <div>
-        <h2 className="text-lg font-semibold mb-4">{t('selectPayment')}</h2>
-        <div className="grid gap-4 sm:grid-cols-3">
-          {/* Credit Card (Stripe) */}
-          <button
-            onClick={() => setSelectedMethod('stripe')}
-            className={`
-              flex items-center gap-3 p-4 rounded-lg border-2 transition-all
-              ${
-                selectedMethod === 'stripe'
-                  ? 'border-primary bg-primary/5'
-                  : 'border-border hover:border-primary/50 bg-card'
-              }
-            `}
-          >
-            <div className="p-2 rounded-lg bg-blue-500/10">
-              <CreditCard className="h-5 w-5 text-blue-500" />
-            </div>
-            <div className="text-left">
-              <p className="font-medium">{t('creditCard')}</p>
-            </div>
-            {selectedMethod === 'stripe' && (
-              <Check className="h-5 w-5 text-primary ml-auto" />
-            )}
-          </button>
-
-          {/* Alipay - Disabled */}
-          <div
-            className="flex items-center gap-3 p-4 rounded-lg border-2 border-border bg-card opacity-50 cursor-not-allowed"
-          >
-            <div className="p-2 rounded-lg bg-blue-600/10">
-              <AlipayIcon />
-            </div>
-            <div className="text-left">
-              <p className="font-medium">{t('alipay')}</p>
-              <p className="text-xs text-muted-foreground">{t('comingSoon')}</p>
-            </div>
-          </div>
-
-          {/* WeChat Pay - Disabled */}
-          <div
-            className="flex items-center gap-3 p-4 rounded-lg border-2 border-border bg-card opacity-50 cursor-not-allowed"
-          >
-            <div className="p-2 rounded-lg bg-green-500/10">
-              <WechatIcon />
-            </div>
-            <div className="text-left">
-              <p className="font-medium">{t('wechat')}</p>
-              <p className="text-xs text-muted-foreground">{t('comingSoon')}</p>
-            </div>
+            <p className="text-xs text-center text-muted-foreground">
+              {t('paymentSecure')}
+            </p>
           </div>
         </div>
-      </div>
-
-      {/* Recharge Button */}
-      <div className="flex justify-end">
-        <button
-          onClick={handleRecharge}
-          disabled={!selectedPackage || selectedMethod !== 'stripe' || processing}
-          className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-8 py-3 text-base font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {processing ? (
-            <>
-              <Loader2 className="h-5 w-5 animate-spin" />
-              {t('processing')}
-            </>
-          ) : (
-            <>
-              <CreditCard className="h-5 w-5" />
-              {t('rechargeNow')}
-            </>
-          )}
-        </button>
       </div>
 
       {/* Processing overlay */}

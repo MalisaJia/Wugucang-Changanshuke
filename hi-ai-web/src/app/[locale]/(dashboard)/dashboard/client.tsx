@@ -28,11 +28,11 @@ interface DashboardStats {
   totalRequests: number;
   activeKeys: number;
   currentPlan: string;
-  tokensUsed: number;
+  totalConsumed: number;  // 累计消耗（分）
 }
 
 // Format relative time (e.g., "2 hours ago")
-function formatRelativeTime(dateStr: string): string {
+function formatRelativeTime(dateStr: string, t: ReturnType<typeof useTranslations>): string {
   const date = new Date(dateStr);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
@@ -40,10 +40,10 @@ function formatRelativeTime(dateStr: string): string {
   const diffHours = Math.floor(diffMins / 60);
   const diffDays = Math.floor(diffHours / 24);
 
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
-  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-  if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+  if (diffMins < 1) return t('justNow');
+  if (diffMins < 60) return diffMins === 1 ? t('minsAgo', { count: diffMins }) : t('minsAgoPlural', { count: diffMins });
+  if (diffHours < 24) return diffHours === 1 ? t('hoursAgo', { count: diffHours }) : t('hoursAgoPlural', { count: diffHours });
+  if (diffDays < 7) return diffDays === 1 ? t('daysAgo', { count: diffDays }) : t('daysAgoPlural', { count: diffDays });
   return date.toLocaleDateString();
 }
 
@@ -116,6 +116,11 @@ function formatTokens(num: number): string {
   return num.toString();
 }
 
+// Format currency (cents to yuan)
+function formatCurrency(cents: number): string {
+  return `¥${(cents / 100).toFixed(2)}`;
+}
+
 // Balance card component
 interface BalanceCardProps {
   balance: Balance | null;
@@ -124,7 +129,7 @@ interface BalanceCardProps {
 }
 
 function BalanceCard({ balance, loading, t }: BalanceCardProps) {
-  const isLowBalance = balance && balance.token_balance < 10000;
+  const isLowBalance = balance && balance.amount_balance < 1000;  // 余额小于 ¥10.00
 
   return (
     <Link href="/dashboard/billing" className="block">
@@ -133,12 +138,12 @@ function BalanceCard({ balance, loading, t }: BalanceCardProps) {
       }`}>
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-muted-foreground">{t('stats.tokenBalance')}</p>
+            <p className="text-sm font-medium text-muted-foreground">{t('stats.accountBalance')}</p>
             {loading ? (
               <div className="h-9 w-24 bg-muted animate-pulse rounded mt-2" />
             ) : (
               <p className="text-3xl font-bold mt-2">
-                {balance ? formatNumber(balance.token_balance) : '—'}
+                {balance ? formatCurrency(balance.amount_balance) : '—'}
               </p>
             )}
             {isLowBalance && (
@@ -166,7 +171,7 @@ export default function DashboardOverviewPage() {
     totalRequests: 0,
     activeKeys: 0,
     currentPlan: 'Free',
-    tokensUsed: 0,
+    totalConsumed: 0,
   });
   const [statsLoading, setStatsLoading] = useState(true);
   const [recentActivity, setRecentActivity] = useState<AuditLog[]>([]);
@@ -187,7 +192,7 @@ export default function DashboardOverviewPage() {
         setBalance(balanceResult.value);
         setStats(prev => ({
           ...prev,
-          tokensUsed: balanceResult.value.total_consumed,
+          totalConsumed: balanceResult.value.total_consumed,
         }));
       } else {
         console.error('Failed to fetch balance:', balanceResult.reason);
@@ -229,10 +234,10 @@ export default function DashboardOverviewPage() {
       {/* Welcome Header */}
       <div>
         <h1 className="text-2xl font-bold">
-          {t('welcome')}, {user?.display_name || 'User'}!
+          {t('welcome')}, {user?.display_name || t('defaultUser')}!
         </h1>
         <p className="text-muted-foreground mt-1">
-          Here&apos;s an overview of your API usage and activity.
+          {t('welcomeSubtitle')}
         </p>
       </div>
 
@@ -259,8 +264,8 @@ export default function DashboardOverviewPage() {
           iconBgColor="bg-purple-500/10"
         />
         <StatsCard
-          title={t('stats.tokensUsed')}
-          value={statsLoading ? '—' : formatTokens(stats.tokensUsed)}
+          title={t('stats.totalConsumed')}
+          value={statsLoading ? '—' : formatCurrency(stats.totalConsumed)}
           icon={<Zap className="h-5 w-5 text-yellow-500" />}
           iconBgColor="bg-yellow-500/10"
           loading={statsLoading}
@@ -334,7 +339,7 @@ export default function DashboardOverviewPage() {
                   </div>
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">
                     <Clock className="h-3 w-3" />
-                    {formatRelativeTime(activity.created_at)}
+                    {formatRelativeTime(activity.created_at, t)}
                   </div>
                 </li>
               ))}

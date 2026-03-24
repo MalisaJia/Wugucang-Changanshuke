@@ -86,7 +86,7 @@ func (r *AuditRepository) ListByTenantID(ctx context.Context, tenantID string, l
 
 	// Get paginated results
 	query := `
-		SELECT id, tenant_id, user_id, action, resource_type, resource_id, ip_address, request_summary, created_at
+		SELECT id, tenant_id, user_id, action, resource_type, resource_id, ip_address::text, request_summary, created_at
 		FROM audit_logs
 		WHERE tenant_id = $1
 		ORDER BY created_at DESC

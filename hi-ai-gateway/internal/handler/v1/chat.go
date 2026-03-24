@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -141,6 +142,12 @@ func (h *ChatHandler) handleStream(c *fiber.Ctx, tc *middleware.TenantContext, r
 
 			if lastUsage != nil {
 				// Use actual usage from the response
+				slog.Info("stream completed with actual usage",
+					"model", req.Model,
+					"prompt_tokens", lastUsage.PromptTokens,
+					"completion_tokens", lastUsage.CompletionTokens,
+					"latency_ms", latencyMs,
+				)
 				usageCallback(lastUsage.PromptTokens, lastUsage.CompletionTokens, latencyMs)
 			} else {
 				// Estimate tokens from accumulated content
@@ -148,8 +155,17 @@ func (h *ChatHandler) handleStream(c *fiber.Ctx, tc *middleware.TenantContext, r
 				promptTokens := service.EstimateTokensFromMessages(req.Messages)
 				// Estimate completion tokens from accumulated response content
 				completionTokens := service.EstimateTokens(accumulatedContent)
+				slog.Info("stream completed with estimated usage",
+					"model", req.Model,
+					"prompt_tokens", promptTokens,
+					"completion_tokens", completionTokens,
+					"content_length", len(accumulatedContent),
+					"latency_ms", latencyMs,
+				)
 				usageCallback(promptTokens, completionTokens, latencyMs)
 			}
+		} else {
+			slog.Warn("stream completed but usageCallback is nil", "model", req.Model)
 		}
 	})
 

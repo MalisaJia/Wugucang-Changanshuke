@@ -27,11 +27,54 @@ auth:
   refresh_token_ttl: 604800
 
 providers:
-  - id: openai
-    name: OpenAI
+  - id: entroflux-gpt4o
+    name: "EntroFlux GPT-4o"
+    api_key: "sk-QC8zdu6NRqgw4ZHszfFVUW2GbqP8QhJSkpAGhAj6VhAhwYji"
+    base_url: "https://chatapi.zjt66.top/v1"
+    enabled: true
+    models:
+      - "gpt-4o"
+
+  - id: entroflux-gpt4o-mini
+    name: "EntroFlux GPT-4o-mini"
+    api_key: "sk-UXtDMYdzqoCN6dWNUABn75It58lxrIfPBu6J4ONTgHPY8jdl"
+    base_url: "https://chatapi.zjt66.top/v1"
+    enabled: true
+    models:
+      - "gpt-4o-mini"
+
+  - id: entroflux-gpt35
+    name: "EntroFlux GPT-3.5"
     api_key: "sk-gqM0aNqmwYBQnq7wx7RsE9m80Syf6BceMiMp8qEcL0D3yJ6N"
     base_url: "https://chatapi.zjt66.top/v1"
     enabled: true
+    models:
+      - "gpt-3.5-turbo"
+
+  - id: entroflux-claude-opus
+    name: "EntroFlux Claude Opus"
+    api_key: "sk-bIvQR4BxXi9HQynZr9ktKhwRniQ7q8uqp3mE8vmddZtnijXg"
+    base_url: "https://chatapi.zjt66.top/v1"
+    enabled: true
+    models:
+      - "claude-opus-4-6"
+      - "claude-opus-4-6-thinking"
+
+  - id: entroflux-claude-sonnet
+    name: "EntroFlux Claude Sonnet"
+    api_key: "sk-uBCxnG9zSKjXytDdIpLkUK1OzrFlgLeeB6x9kGnkGAhfHQHY"
+    base_url: "https://chatapi.zjt66.top/v1"
+    enabled: true
+    models:
+      - "claude-sonnet-4-6-thinking"
+
+  - id: entroflux-gemini
+    name: "EntroFlux Gemini"
+    api_key: "sk-oRF8HZcuusw7gvyRPV3c6abcxnbaL9oAguALY0exXDhey0pW"
+    base_url: "https://chatapi.zjt66.top/v1"
+    enabled: true
+    models:
+      - "gemini-2.5-flash-thinking"
 
 rate_limit:
   enabled: true

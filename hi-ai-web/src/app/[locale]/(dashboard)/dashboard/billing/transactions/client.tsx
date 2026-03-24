@@ -17,6 +17,7 @@ import {
 
 export default function TransactionsClient() {
   const t = useTranslations('billing');
+    const tDash = useTranslations('dashboard');
   const [data, setData] = useState<TransactionList | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -150,7 +151,7 @@ export default function TransactionsClient() {
         {loading ? (
           <div className="p-8 text-center text-muted-foreground">
             <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4" />
-            Loading...
+            {tDash('loading')}
           </div>
         ) : !data || data.transactions.length === 0 ? (
           <div className="p-8 text-center">

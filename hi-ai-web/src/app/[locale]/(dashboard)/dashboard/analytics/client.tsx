@@ -424,7 +424,7 @@ export default function AnalyticsClient() {
             <div className="bg-card rounded-lg border border-border p-6">
               <h3 className="text-lg font-semibold mb-4">{t('usageTrend')} ({t('last7Days')})</h3>
               <BarChart
-                data={dailyChartData as Record<string, unknown>[]}
+                data={dailyChartData as unknown as Record<string, unknown>[]}
                 labelKey="date"
                 valueKey="tokens_total"
                 formatValue={formatNumber}
@@ -436,7 +436,7 @@ export default function AnalyticsClient() {
             <div className="bg-card rounded-lg border border-border p-6">
               <h3 className="text-lg font-semibold mb-4">{t('modelDistribution')}</h3>
               <DonutChart
-                data={modelChartData as Record<string, unknown>[]}
+                data={modelChartData as unknown as Record<string, unknown>[]}
                 labelKey="model"
                 valueKey="tokens_total"
               />

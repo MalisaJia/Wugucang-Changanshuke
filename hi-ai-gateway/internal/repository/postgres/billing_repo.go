@@ -35,7 +35,7 @@ func (r *BillingRepository) Pool() *pgxpool.Pool {
 // GetBalance retrieves the current balance for a tenant.
 func (r *BillingRepository) GetBalance(ctx context.Context, tenantID uuid.UUID) (*domain.Balance, error) {
 	query := `
-		SELECT tenant_id, token_balance, total_recharged, total_consumed, updated_at
+		SELECT tenant_id, amount_balance, total_recharged, total_consumed, updated_at
 		FROM balances
 		WHERE tenant_id = $1
 	`
@@ -43,7 +43,7 @@ func (r *BillingRepository) GetBalance(ctx context.Context, tenantID uuid.UUID) 
 	var b domain.Balance
 	err := r.db.pool.QueryRow(ctx, query, tenantID).Scan(
 		&b.TenantID,
-		&b.TokenBalance,
+		&b.AmountBalance,
 		&b.TotalRecharged,
 		&b.TotalConsumed,
 		&b.UpdatedAt,
@@ -58,11 +58,11 @@ func (r *BillingRepository) GetBalance(ctx context.Context, tenantID uuid.UUID) 
 	return &b, nil
 }
 
-// InitBalance creates an initial zero balance record for a tenant.
+// InitBalance creates an initial balance record for a tenant (100 cents = ¥1.00 free credit).
 func (r *BillingRepository) InitBalance(ctx context.Context, tenantID uuid.UUID) error {
 	query := `
-		INSERT INTO balances (tenant_id, token_balance, total_recharged, total_consumed, updated_at)
-		VALUES ($1, 10000, 0, 0, $2)
+		INSERT INTO balances (tenant_id, amount_balance, total_recharged, total_consumed, updated_at)
+		VALUES ($1, 100, 0, 0, $2)
 		ON CONFLICT (tenant_id) DO NOTHING
 	`
 
@@ -85,21 +85,21 @@ func (r *BillingRepository) UpdateBalance(ctx context.Context, tx pgx.Tx, tenant
 		// Recharge: increment balance and total_recharged
 		query = `
 			UPDATE balances
-			SET token_balance = token_balance + $2,
+			SET amount_balance = amount_balance + $2,
 			    total_recharged = total_recharged + $2,
 			    updated_at = $3
 			WHERE tenant_id = $1
-			RETURNING tenant_id, token_balance, total_recharged, total_consumed, updated_at
+			RETURNING tenant_id, amount_balance, total_recharged, total_consumed, updated_at
 		`
 	} else {
 		// Consume: decrement balance and increment total_consumed
 		query = `
 			UPDATE balances
-			SET token_balance = token_balance + $2,
+			SET amount_balance = amount_balance + $2,
 			    total_consumed = total_consumed + $3,
 			    updated_at = $4
 			WHERE tenant_id = $1
-			RETURNING tenant_id, token_balance, total_recharged, total_consumed, updated_at
+			RETURNING tenant_id, amount_balance, total_recharged, total_consumed, updated_at
 		`
 	}
 
@@ -109,7 +109,7 @@ func (r *BillingRepository) UpdateBalance(ctx context.Context, tx pgx.Tx, tenant
 	if delta >= 0 {
 		err = tx.QueryRow(ctx, query, tenantID, delta, now).Scan(
 			&b.TenantID,
-			&b.TokenBalance,
+			&b.AmountBalance,
 			&b.TotalRecharged,
 			&b.TotalConsumed,
 			&b.UpdatedAt,
@@ -118,7 +118,7 @@ func (r *BillingRepository) UpdateBalance(ctx context.Context, tx pgx.Tx, tenant
 		// For consume, we pass delta (negative) to add to balance, and -delta (positive) to add to total_consumed
 		err = tx.QueryRow(ctx, query, tenantID, delta, -delta, now).Scan(
 			&b.TenantID,
-			&b.TokenBalance,
+			&b.AmountBalance,
 			&b.TotalRecharged,
 			&b.TotalConsumed,
 			&b.UpdatedAt,
@@ -137,7 +137,7 @@ func (r *BillingRepository) UpdateBalance(ctx context.Context, tx pgx.Tx, tenant
 
 // CheckBalance checks if tenant has sufficient balance (used before deduction).
 func (r *BillingRepository) CheckBalance(ctx context.Context, tx pgx.Tx, tenantID uuid.UUID, required int64) (int64, error) {
-	query := `SELECT token_balance FROM balances WHERE tenant_id = $1 FOR UPDATE`
+	query := `SELECT amount_balance FROM balances WHERE tenant_id = $1 FOR UPDATE`
 
 	var balance int64
 	err := tx.QueryRow(ctx, query, tenantID).Scan(&balance)
@@ -248,8 +248,8 @@ func (r *BillingRepository) ListTransactions(ctx context.Context, tenantID uuid.
 // CreatePayment inserts a new payment order.
 func (r *BillingRepository) CreatePayment(ctx context.Context, p *domain.Payment) error {
 	query := `
-		INSERT INTO payments (id, tenant_id, order_no, amount_cents, currency, token_amount, method, status, external_id, paid_at, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		INSERT INTO payments (id, tenant_id, order_no, amount_cents, currency, method, status, external_id, paid_at, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 	`
 
 	_, err := r.db.pool.Exec(ctx, query,
@@ -258,7 +258,6 @@ func (r *BillingRepository) CreatePayment(ctx context.Context, p *domain.Payment
 		p.OrderNo,
 		p.AmountCents,
 		p.Currency,
-		p.TokenAmount,
 		p.Method,
 		p.Status,
 		p.ExternalID,
@@ -275,7 +274,7 @@ func (r *BillingRepository) CreatePayment(ctx context.Context, p *domain.Payment
 // GetPaymentByOrderNo retrieves a payment by its order number.
 func (r *BillingRepository) GetPaymentByOrderNo(ctx context.Context, orderNo string) (*domain.Payment, error) {
 	query := `
-		SELECT id, tenant_id, order_no, amount_cents, currency, token_amount, method, status, external_id, paid_at, created_at
+		SELECT id, tenant_id, order_no, amount_cents, currency, method, status, external_id, paid_at, created_at
 		FROM payments
 		WHERE order_no = $1
 	`
@@ -288,7 +287,6 @@ func (r *BillingRepository) GetPaymentByOrderNo(ctx context.Context, orderNo str
 		&p.OrderNo,
 		&p.AmountCents,
 		&p.Currency,
-		&p.TokenAmount,
 		&p.Method,
 		&p.Status,
 		&externalID,
@@ -336,18 +334,27 @@ func (r *BillingRepository) UpdatePaymentStatus(ctx context.Context, orderNo str
 // CreateUsageLog inserts a new usage log entry.
 func (r *BillingRepository) CreateUsageLog(ctx context.Context, log *domain.UsageLog) error {
 	query := `
-		INSERT INTO usage_logs (id, tenant_id, api_key_id, model, tokens_in, tokens_out, tokens_total, latency_ms, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		INSERT INTO usage_logs (id, tenant_id, api_key_id, model, tokens_in, tokens_out, tokens_total, cost_cents, latency_ms, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 	`
+
+	// Handle NULL api_key_id for JWT-based users (no API key)
+	var keyIDParam interface{}
+	if log.APIKeyID != uuid.Nil {
+		keyIDParam = log.APIKeyID
+	} else {
+		keyIDParam = nil
+	}
 
 	_, err := r.db.pool.Exec(ctx, query,
 		log.ID,
 		log.TenantID,
-		log.APIKeyID,
+		keyIDParam,
 		log.Model,
 		log.TokensIn,
 		log.TokensOut,
 		log.TokensTotal,
+		log.CostCents,
 		log.LatencyMs,
 		log.CreatedAt,
 	)
@@ -361,18 +368,27 @@ func (r *BillingRepository) CreateUsageLog(ctx context.Context, log *domain.Usag
 // CreateUsageLogTx inserts a new usage log entry within a transaction.
 func (r *BillingRepository) CreateUsageLogTx(ctx context.Context, tx pgx.Tx, log *domain.UsageLog) error {
 	query := `
-		INSERT INTO usage_logs (id, tenant_id, api_key_id, model, tokens_in, tokens_out, tokens_total, latency_ms, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		INSERT INTO usage_logs (id, tenant_id, api_key_id, model, tokens_in, tokens_out, tokens_total, cost_cents, latency_ms, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 	`
+
+	// Handle NULL api_key_id for JWT-based users (no API key)
+	var keyIDParam interface{}
+	if log.APIKeyID != uuid.Nil {
+		keyIDParam = log.APIKeyID
+	} else {
+		keyIDParam = nil
+	}
 
 	_, err := tx.Exec(ctx, query,
 		log.ID,
 		log.TenantID,
-		log.APIKeyID,
+		keyIDParam,
 		log.Model,
 		log.TokensIn,
 		log.TokensOut,
 		log.TokensTotal,
+		log.CostCents,
 		log.LatencyMs,
 		log.CreatedAt,
 	)
@@ -397,6 +413,22 @@ func (r *BillingRepository) GetUsageSummary(ctx context.Context, tenantID uuid.U
 	}
 
 	return totalIn, totalOut, nil
+}
+
+// GetCostSummary retrieves the total cost (in cents) since a given time.
+func (r *BillingRepository) GetCostSummary(ctx context.Context, tenantID uuid.UUID, since time.Time) (totalCostCents int64, err error) {
+	query := `
+		SELECT COALESCE(SUM(cost_cents), 0)
+		FROM usage_logs
+		WHERE tenant_id = $1 AND created_at >= $2
+	`
+
+	err = r.db.pool.QueryRow(ctx, query, tenantID, since).Scan(&totalCostCents)
+	if err != nil {
+		return 0, fmt.Errorf("get cost summary: %w", err)
+	}
+
+	return totalCostCents, nil
 }
 
 // DailyStats represents daily usage statistics.
@@ -526,7 +558,7 @@ func (r *BillingRepository) ListUsageLogs(ctx context.Context, tenantID uuid.UUI
 
 	// Get paginated results
 	query := `
-		SELECT id, tenant_id, api_key_id, model, tokens_in, tokens_out, tokens_total, latency_ms, created_at
+		SELECT id, tenant_id, api_key_id, model, tokens_in, tokens_out, tokens_total, cost_cents, latency_ms, created_at
 		FROM usage_logs
 		WHERE tenant_id = $1
 		ORDER BY created_at DESC
@@ -551,6 +583,7 @@ func (r *BillingRepository) ListUsageLogs(ctx context.Context, tenantID uuid.UUI
 			&log.TokensIn,
 			&log.TokensOut,
 			&log.TokensTotal,
+			&log.CostCents,
 			&log.LatencyMs,
 			&log.CreatedAt,
 		)
@@ -577,7 +610,7 @@ func (r *BillingRepository) ListUsageLogs(ctx context.Context, tenantID uuid.UUI
 // GetBalanceByTenantID retrieves balance for a specific tenant (admin use).
 func (r *BillingRepository) GetBalanceByTenantID(ctx context.Context, tenantID string) (*domain.Balance, error) {
 	query := `
-		SELECT tenant_id, token_balance, total_recharged, total_consumed, updated_at
+		SELECT tenant_id, amount_balance, total_recharged, total_consumed, updated_at
 		FROM balances
 		WHERE tenant_id = $1
 	`
@@ -585,7 +618,7 @@ func (r *BillingRepository) GetBalanceByTenantID(ctx context.Context, tenantID s
 	var b domain.Balance
 	err := r.db.pool.QueryRow(ctx, query, tenantID).Scan(
 		&b.TenantID,
-		&b.TokenBalance,
+		&b.AmountBalance,
 		&b.TotalRecharged,
 		&b.TotalConsumed,
 		&b.UpdatedAt,
@@ -614,24 +647,24 @@ func (r *BillingRepository) AdjustBalanceByTenantID(ctx context.Context, tenantI
 	var newBalance int64
 
 	if adjustment >= 0 {
-		// Adding tokens
+		// Adding amount
 		query := `
 			UPDATE balances
-			SET token_balance = token_balance + $2,
+			SET amount_balance = amount_balance + $2,
 			    total_recharged = total_recharged + $2,
 			    updated_at = $3
 			WHERE tenant_id = $1
-			RETURNING token_balance
+			RETURNING amount_balance
 		`
 		err = tx.QueryRow(ctx, query, tenantID, adjustment, now).Scan(&newBalance)
 	} else {
-		// Deducting tokens
+		// Deducting amount
 		query := `
 			UPDATE balances
-			SET token_balance = token_balance + $2,
+			SET amount_balance = amount_balance + $2,
 			    updated_at = $3
 			WHERE tenant_id = $1
-			RETURNING token_balance
+			RETURNING amount_balance
 		`
 		err = tx.QueryRow(ctx, query, tenantID, adjustment, now).Scan(&newBalance)
 	}
@@ -674,15 +707,15 @@ func (r *BillingRepository) ProcessRefund(ctx context.Context, tenantID string, 
 	}
 	defer tx.Rollback(ctx)
 
-	// Update balance (add tokens for refund)
+	// Update balance (add amount for refund)
 	now := time.Now()
 	query := `
 		UPDATE balances
-		SET token_balance = token_balance + $2,
+		SET amount_balance = amount_balance + $2,
 		    total_recharged = total_recharged + $2,
 		    updated_at = $3
 		WHERE tenant_id = $1
-		RETURNING token_balance
+		RETURNING amount_balance
 	`
 	var newBalance int64
 	err = tx.QueryRow(ctx, query, tenantID, amount, now).Scan(&newBalance)

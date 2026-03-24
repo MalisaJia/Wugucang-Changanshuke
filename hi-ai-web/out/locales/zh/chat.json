@@ -1,0 +1,17 @@
+{
+  "chat": {
+    "title": "对话",
+    "selectModel": "选择模型",
+    "typeMessage": "输入消息...",
+    "send": "发送",
+    "newChat": "新对话",
+    "balance": "余额",
+    "insufficientBalance": "余额不足，请充值后继续使用。",
+    "rechargeNow": "立即充值",
+    "notLoggedIn": "请先登录后开始对话。",
+    "thinking": "思考中...",
+    "errorOccurred": "发生错误，请重试。",
+    "welcome": "欢迎！选择一个模型开始对话。",
+    "tokens": "tokens"
+  }
+}

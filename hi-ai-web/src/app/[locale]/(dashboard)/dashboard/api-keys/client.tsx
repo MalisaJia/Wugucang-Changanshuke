@@ -8,6 +8,7 @@ import { Copy, Plus, Trash2, Key, AlertTriangle, Check, X } from 'lucide-react';
 
 export default function APIKeysPage() {
   const t = useTranslations('dashboard');
+    const tKeys = useTranslations('dashboard.keys');
   const [keys, setKeys] = useState<APIKey[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -161,7 +162,7 @@ export default function APIKeysPage() {
         {loading ? (
           <div className="p-8 text-center text-muted-foreground">
             <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4" />
-            Loading...
+            {t('loading')}
           </div>
         ) : keys.length === 0 ? (
           <div className="p-8 text-center">
@@ -261,7 +262,7 @@ export default function APIKeysPage() {
                 disabled={!createName.trim() || creating}
                 className="px-4 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {creating ? 'Creating...' : t('keys.createDialog.create')}
+                {creating ? t('creating') : t('keys.createDialog.create')}
               </button>
             </div>
           </div>
@@ -347,7 +348,7 @@ export default function APIKeysPage() {
                 disabled={revoking}
                 className="px-4 py-2 text-sm font-medium rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors disabled:opacity-50"
               >
-                {revoking ? 'Revoking...' : t('keys.revoke')}
+                {revoking ? t('revoking') : t('keys.revoke')}
               </button>
             </div>
           </div>

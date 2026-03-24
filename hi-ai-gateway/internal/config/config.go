@@ -66,11 +66,12 @@ type AuthConfig struct {
 }
 
 type ProviderConfig struct {
-	ID      string `yaml:"id"`
-	Name    string `yaml:"name"`
-	APIKey  string `yaml:"api_key"`
-	BaseURL string `yaml:"base_url"`
-	Enabled bool   `yaml:"enabled"`
+	ID      string   `yaml:"id"`
+	Name    string   `yaml:"name"`
+	APIKey  string   `yaml:"api_key"`
+	BaseURL string   `yaml:"base_url"`
+	Enabled bool     `yaml:"enabled"`
+	Models  []string `yaml:"models"` // Supported models; empty means supports all models
 }
 
 type RateLimitConfig struct {
