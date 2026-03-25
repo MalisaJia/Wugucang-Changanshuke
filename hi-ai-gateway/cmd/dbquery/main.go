@@ -7,19 +7,10 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"golang.org/x/crypto/bcrypt"
 )
 
 func main() {
 	dsn := "postgres://neondb_owner:npg_wySpABGm8gr5@ep-round-heart-a1etiqaw-pooler.ap-southeast-1.aws.neon.tech:5432/neondb?sslmode=require&channel_binding=require"
-
-	newPassword := "Test@1234"
-	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "bcrypt error: %v\n", err)
-		os.Exit(1)
-	}
-	fmt.Printf("Generated hash for '%s': %s\n", newPassword, string(hash))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -31,12 +22,28 @@ func main() {
 	}
 	defer conn.Close(ctx)
 
-	// Reset password for user
-	email := "1615627276@qq.com"
-	tag, err := conn.Exec(ctx, "UPDATE users SET password_hash = $1 WHERE email = $2", string(hash), email)
+	// Query all users
+	rows, err := conn.Query(ctx, "SELECT id, email, display_name, role, tenant_id, created_at FROM users WHERE deleted_at IS NULL")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "update error: %v\n", err)
+		fmt.Fprintf(os.Stderr, "query error: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("Password reset for %s: %d row(s) updated\n", email, tag.RowsAffected())
+	defer rows.Close()
+
+	fmt.Println("=== All Users ===")
+	fmt.Printf("%-36s | %-30s | %-15s | %-10s | %-36s | %s\n", "ID", "Email", "DisplayName", "Role", "TenantID", "CreatedAt")
+	fmt.Println("---")
+	for rows.Next() {
+		var id, email, displayName, role, tenantID string
+		var createdAt time.Time
+		if err := rows.Scan(&id, &email, &displayName, &role, &tenantID, &createdAt); err != nil {
+			fmt.Fprintf(os.Stderr, "scan error: %v\n", err)
+			continue
+		}
+		fmt.Printf("%-36s | %-30s | %-15s | %-10s | %-36s | %s\n", id, email, displayName, role, tenantID, createdAt.Format(time.RFC3339))
+	}
+	if err := rows.Err(); err != nil {
+		fmt.Fprintf(os.Stderr, "rows error: %v\n", err)
+		os.Exit(1)
+	}
 }

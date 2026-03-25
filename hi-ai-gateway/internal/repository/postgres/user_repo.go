@@ -280,7 +280,7 @@ func (r *UserRepository) ListAllUsers(ctx context.Context, page, perPage int, em
 	query := `
 		SELECT 
 			u.id, u.tenant_id, u.email, u.display_name, u.role, u.status, 
-			COALESCE(b.token_balance, 0) as balance,
+			COALESCE(b.amount_balance, 0) as balance,
 			u.created_at, u.last_login_at
 		FROM users u
 		LEFT JOIN balances b ON u.tenant_id = b.tenant_id
@@ -330,7 +330,7 @@ func (r *UserRepository) GetRecentUsers(ctx context.Context, limit int) ([]Admin
 	query := `
 		SELECT 
 			u.id, u.tenant_id, u.email, u.display_name, u.role, u.status, 
-			COALESCE(b.token_balance, 0) as balance,
+			COALESCE(b.amount_balance, 0) as balance,
 			u.created_at, u.last_login_at
 		FROM users u
 		LEFT JOIN balances b ON u.tenant_id = b.tenant_id

@@ -33,7 +33,8 @@ type RoutingTarget struct {
 
 // RoutingRequest holds the context needed for routing decisions.
 type RoutingRequest struct {
-	TenantID string
-	ModelID  string
-	Metadata map[string]interface{}
+	TenantID      string
+	ModelID       string
+	ContentLength int                    // Total content length of messages (for conditional routing)
+	Metadata      map[string]interface{}
 }

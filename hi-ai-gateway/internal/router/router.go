@@ -22,6 +22,8 @@ func NewRouter(mode domain.RoutingMode, rule *domain.RoutingRule) Router {
 		return NewFallback(rule)
 	case domain.RoutingModeLoadBalance:
 		return NewLoadBalance(rule)
+	case domain.RoutingModeConditional:
+		return NewConditional(rule)
 	default:
 		return NewSingle(rule)
 	}

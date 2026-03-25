@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/gofiber/fiber/v2"
 
@@ -53,10 +54,28 @@ type PIIMatch struct {
 	Count int
 }
 
+// PIIRule represents a single PII detection rule for API response
+type PIIRule struct {
+	Name        string `json:"name"`
+	Pattern     string `json:"pattern"`
+	Enabled     bool   `json:"enabled"`
+	Replacement string `json:"replacement"`
+	Description string `json:"description"`
+}
+
+// GuardrailAPIConfig represents the guardrail configuration for API response
+type GuardrailAPIConfig struct {
+	Mode  GuardrailMode `json:"mode"`
+	Rules []PIIRule     `json:"rules"`
+}
+
 // Guardrail provides PII detection and masking capabilities
 type Guardrail struct {
-	patterns []PIIPattern
-	logger   *slog.Logger
+	patterns    []PIIPattern
+	logger      *slog.Logger
+	mu          sync.RWMutex
+	currentMode GuardrailMode
+	enabledPII  map[PIIType]bool
 }
 
 // NewGuardrail creates a new Guardrail instance with compiled regex patterns
@@ -100,9 +119,19 @@ func NewGuardrail(logger *slog.Logger) *Guardrail {
 		},
 	}
 
+	// Initialize enabled PII types - all enabled by default
+	enabledPII := make(map[PIIType]bool)
+	enabledPII[PIIEmail] = true
+	enabledPII[PIIPhone] = true
+	enabledPII[PIISSNOrID] = true
+	enabledPII[PIICreditCard] = true
+	enabledPII[PIIIPAddress] = true
+
 	return &Guardrail{
-		patterns: patterns,
-		logger:   logger,
+		patterns:    patterns,
+		logger:      logger,
+		currentMode: GuardrailMask, // default mode
+		enabledPII:  enabledPII,
 	}
 }
 
@@ -405,4 +434,55 @@ func formatPIIDetection(piiType PIIType, count int) string {
 		return "1 " + name
 	}
 	return fmt.Sprintf("%d %ss", count, name)
+}
+
+// GetConfig returns the current guardrail configuration (thread-safe)
+func (g *Guardrail) GetConfig() GuardrailAPIConfig {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	rules := make([]PIIRule, 0, len(g.patterns))
+	seenTypes := make(map[PIIType]bool)
+
+	for _, p := range g.patterns {
+		// Skip duplicate types (e.g., SSN and Chinese ID are both PIISSNOrID)
+		if seenTypes[p.Type] {
+			continue
+		}
+		seenTypes[p.Type] = true
+
+		enabled := g.enabledPII[p.Type]
+		rules = append(rules, PIIRule{
+			Name:        string(p.Type),
+			Pattern:     p.Pattern.String(),
+			Enabled:     enabled,
+			Replacement: p.Replacement,
+			Description: p.Description,
+		})
+	}
+
+	return GuardrailAPIConfig{
+		Mode:  g.currentMode,
+		Rules: rules,
+	}
+}
+
+// UpdateConfig updates the guardrail configuration (thread-safe)
+func (g *Guardrail) UpdateConfig(cfg GuardrailAPIConfig) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	// Update mode
+	g.currentMode = cfg.Mode
+
+	// Update enabled status for each rule
+	for _, rule := range cfg.Rules {
+		piiType := PIIType(rule.Name)
+		g.enabledPII[piiType] = rule.Enabled
+	}
+
+	g.logger.Info("guardrail configuration updated",
+		"mode", cfg.Mode,
+		"rules_count", len(cfg.Rules),
+	)
 }

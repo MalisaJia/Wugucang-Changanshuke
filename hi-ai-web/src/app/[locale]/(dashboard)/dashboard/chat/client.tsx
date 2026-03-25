@@ -25,7 +25,19 @@ const MODELS = [
   // OpenAI Models
   { id: 'gpt-4o', name: 'GPT-4o', provider: 'OpenAI', icon: '🤖', description: 'Flagship multimodal model' },
   { id: 'gpt-4o-mini', name: 'GPT-4o Mini', provider: 'OpenAI', icon: '🤖', description: 'Lightweight & efficient' },
+  // GPT-4.1 Series (new generation)
+  { id: 'gpt-4.1', name: 'GPT-4.1', provider: 'OpenAI', icon: '🤖', description: 'Latest with 1M context' },
+  { id: 'gpt-4.1-2025-04-14', name: 'GPT-4.1 (2025-04-14)', provider: 'OpenAI', icon: '🤖', description: 'GPT-4.1 April snapshot' },
+  { id: 'gpt-4.1-mini', name: 'GPT-4.1 Mini', provider: 'OpenAI', icon: '🤖', description: 'Compact GPT-4.1' },
+  { id: 'gpt-4.1-mini-2025-04-14', name: 'GPT-4.1 Mini (2025-04-14)', provider: 'OpenAI', icon: '🤖', description: 'Mini April snapshot' },
+  { id: 'gpt-4.1-nano', name: 'GPT-4.1 Nano', provider: 'OpenAI', icon: '🤖', description: 'Ultra-fast & cheap' },
+  { id: 'gpt-4.1-nano-2025-04-14', name: 'GPT-4.1 Nano (2025-04-14)', provider: 'OpenAI', icon: '🤖', description: 'Nano April snapshot' },
+  // GPT-3.5 Series
   { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo', provider: 'OpenAI', icon: '🤖', description: 'Classic fast model' },
+  { id: 'gpt-3.5-turbo-0125', name: 'GPT-3.5 Turbo 0125', provider: 'OpenAI', icon: '🤖', description: 'Latest 3.5 snapshot' },
+  { id: 'gpt-3.5-turbo-1106', name: 'GPT-3.5 Turbo 1106', provider: 'OpenAI', icon: '🤖', description: 'Nov 2023 snapshot' },
+  { id: 'gpt-3.5-turbo-16k', name: 'GPT-3.5 Turbo 16K', provider: 'OpenAI', icon: '🤖', description: '16K context window' },
+  { id: 'gpt-3.5-turbo-16k-0613', name: 'GPT-3.5 Turbo 16K 0613', provider: 'OpenAI', icon: '🤖', description: '16K June 2023' },
   // Anthropic Models
   { id: 'claude-opus-4-6', name: 'Claude Opus 4', provider: 'Anthropic', icon: '🧠', description: 'Most powerful reasoning' },
   { id: 'claude-opus-4-6-thinking', name: 'Claude Opus 4 Thinking', provider: 'Anthropic', icon: '🧠', description: 'Extended thinking mode' },

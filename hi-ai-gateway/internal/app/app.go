@@ -55,6 +55,14 @@ type App struct {
 	ManagementHandler    *admin.ManagementHandler
 	WebhookHandler       *webhook.PaymentHandler
 	PaymentProviders     map[string]payment.PaymentProvider
+	// New admin handlers
+	SecurityHandler      *admin.SecurityHandler
+	RoutingHandler       *admin.RoutingHandler
+	PaymentsHandler      *admin.PaymentsHandler
+	APIKeysAdminHandler  *admin.APIKeysAdminHandler
+	// Infrastructure
+	Guardrail            *middleware.Guardrail
+	BreakerPool          *middleware.BreakerPool
 }
 
 // New creates and wires all application dependencies.
@@ -128,9 +136,27 @@ func New(cfg *config.Config) (*App, error) {
 	routingMode := domain.RoutingMode(cfg.Routing.Mode)
 	logger.Info("routing configuration", "mode", routingMode, "health_window", healthWindow, "error_threshold", cfg.Routing.HealthCheck.ErrorThreshold)
 
+	// Initialize retryer for exponential backoff
+	retryConfig := service.RetryConfig{
+		MaxAttempts:       cfg.Retry.MaxAttempts,
+		InitialBackoff:    cfg.Retry.InitialBackoff,
+		MaxBackoff:        cfg.Retry.MaxBackoff,
+		BackoffMultiplier: cfg.Retry.BackoffMultiplier,
+	}
+	retryer := service.NewRetryer(retryConfig, logger)
+
+	// Initialize circuit breaker pool
+	breakerConfig := middleware.BreakerConfig{
+		FailureThreshold: uint32(cfg.CircuitBreaker.FailureThreshold),
+		SuccessThreshold: uint32(cfg.CircuitBreaker.SuccessThreshold),
+		Timeout:          cfg.CircuitBreaker.Timeout,
+		Window:           cfg.CircuitBreaker.Window,
+	}
+	breakerPool := middleware.NewBreakerPool(breakerConfig)
+
 	// Initialize services
 	billingSvc := service.NewBillingService(billingRepo)
-	chatSvc := service.NewChatService(registry, logger, healthTracker, routingMode, billingSvc)
+	chatSvc := service.NewChatService(registry, logger, healthTracker, routingMode, billingSvc, retryer, breakerPool)
 	userSvc := service.NewUserService(userRepo, tenantRepo, cfg.Auth.JWTSecret, cfg.Auth.AccessTokenTTL, cfg.Auth.RefreshTokenTTL, billingSvc)
 	apiKeySvc := service.NewAPIKeyService()
 
@@ -166,6 +192,9 @@ func New(cfg *config.Config) (*App, error) {
 		logger.Info("wechat payment provider initialized (placeholder)")
 	}
 
+	// Initialize guardrail for PII protection
+	guardrail := middleware.NewGuardrail(logger)
+
 	// Initialize billing handler with payment providers
 	baseURL := fmt.Sprintf("http://%s:%d", cfg.Server.Host, cfg.Server.Port)
 	if cfg.Server.Host == "0.0.0.0" {
@@ -174,6 +203,12 @@ func New(cfg *config.Config) (*App, error) {
 	billingHandler := admin.NewBillingHandler(billingSvc, paymentProviders, baseURL, logger)
 	managementHandler := admin.NewManagementHandler(userRepo, billingRepo, logger)
 	webhookHandler := webhook.NewPaymentHandler(billingSvc, logger)
+
+	// Initialize new admin handlers
+	securityHandler := admin.NewSecurityHandler(guardrail, logger)
+	routingHandler := admin.NewRoutingHandler(cfg, breakerPool, logger)
+	paymentsHandler := admin.NewPaymentsHandler(billingRepo, logger)
+	apiKeysAdminHandler := admin.NewAPIKeysAdminHandler(apiKeyRepo, logger)
 
 	app := &App{
 		Config:             cfg,
@@ -207,6 +242,14 @@ func New(cfg *config.Config) (*App, error) {
 		ManagementHandler:  managementHandler,
 		WebhookHandler:     webhookHandler,
 		PaymentProviders:   paymentProviders,
+		// New admin handlers
+		SecurityHandler:     securityHandler,
+		RoutingHandler:      routingHandler,
+		PaymentsHandler:     paymentsHandler,
+		APIKeysAdminHandler: apiKeysAdminHandler,
+		// Infrastructure
+		Guardrail:           guardrail,
+		BreakerPool:         breakerPool,
 	}
 
 	return app, nil

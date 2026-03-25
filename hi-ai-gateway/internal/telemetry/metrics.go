@@ -70,6 +70,22 @@ var (
 		},
 		[]string{"provider", "model", "tenant_id"},
 	)
+
+	CircuitBreakerState = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "hiai_llm_circuit_breaker_state",
+			Help: "Current circuit breaker state (0=closed, 1=half-open, 2=open)",
+		},
+		[]string{"provider", "model"},
+	)
+
+	RetriesTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "hiai_llm_retries_total",
+			Help: "Total number of retry attempts",
+		},
+		[]string{"provider", "model", "attempt"},
+	)
 )
 
 // RecordRequest records metrics for a completed LLM request.

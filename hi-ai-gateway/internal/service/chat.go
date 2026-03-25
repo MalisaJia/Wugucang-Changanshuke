@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -26,10 +27,12 @@ type ChatService struct {
 	healthTracker *HealthTracker
 	routingMode   domain.RoutingMode
 	billingSvc    *BillingService
+	retryer       *Retryer
+	breakerPool   *middleware.BreakerPool
 }
 
 // NewChatService creates a new chat service.
-func NewChatService(registry *adapter.Registry, logger *slog.Logger, healthTracker *HealthTracker, routingMode domain.RoutingMode, billingSvc *BillingService) *ChatService {
+func NewChatService(registry *adapter.Registry, logger *slog.Logger, healthTracker *HealthTracker, routingMode domain.RoutingMode, billingSvc *BillingService, retryer *Retryer, breakerPool *middleware.BreakerPool) *ChatService {
 	if routingMode == "" {
 		routingMode = domain.RoutingModeSingle // Default for backward compatibility
 	}
@@ -39,6 +42,8 @@ func NewChatService(registry *adapter.Registry, logger *slog.Logger, healthTrack
 		healthTracker: healthTracker,
 		routingMode:   routingMode,
 		billingSvc:    billingSvc,
+		retryer:       retryer,
+		breakerPool:   breakerPool,
 	}
 }
 
@@ -46,8 +51,11 @@ func NewChatService(registry *adapter.Registry, logger *slog.Logger, healthTrack
 func (s *ChatService) Complete(ctx context.Context, tc *middleware.TenantContext, req *openai.ChatCompletionRequest) (*openai.ChatCompletionResponse, error) {
 	start := time.Now()
 
+	// Calculate content length for conditional routing
+	contentLength := calculateContentLength(req.Messages)
+
 	// Resolve routing targets
-	targets := s.resolveTargets(req.Model)
+	targets := s.resolveTargets(req.Model, contentLength)
 	if len(targets) == 0 {
 		return nil, apierr.New(apierr.CodeModelNotFound, fmt.Sprintf("model %q not found or no provider configured", req.Model))
 	}
@@ -74,16 +82,70 @@ func (s *ChatService) Complete(ctx context.Context, tc *middleware.TenantContext
 			continue
 		}
 
+		// Check circuit breaker state - skip if open
+		if s.breakerPool != nil && !s.breakerPool.IsAvailable(target.ProviderID, target.ModelID) {
+			s.logger.Warn("circuit breaker open, skipping provider", "provider", target.ProviderID, "model", target.ModelID)
+			continue
+		}
+
 		// Set the model to the target's model ID
 		reqCopy := *req
 		if target.ModelID != "" {
 			reqCopy.Model = target.ModelID
 		}
 
-		resp, err := provider.ChatCompletion(ctx, &reqCopy)
-		if err != nil {
+		// Retry loop for this provider
+		maxAttempts := 1
+		if s.retryer != nil {
+			maxAttempts = s.retryer.GetMaxAttempts()
+		}
+
+		var resp *openai.ChatCompletionResponse
+		var err error
+
+		for attempt := 0; attempt < maxAttempts; attempt++ {
+			if attempt > 0 {
+				telemetry.RetriesTotal.WithLabelValues(target.ProviderID, target.ModelID, strconv.Itoa(attempt)).Inc()
+			}
+
+			// Execute through circuit breaker if available
+			if s.breakerPool != nil {
+				result, cbErr := s.breakerPool.Execute(target.ProviderID, target.ModelID, func() (interface{}, error) {
+					return provider.ChatCompletion(ctx, &reqCopy)
+				})
+				if cbErr != nil {
+					err = cbErr
+					resp = nil
+				} else {
+					resp = result.(*openai.ChatCompletionResponse)
+					err = nil
+				}
+			} else {
+				resp, err = provider.ChatCompletion(ctx, &reqCopy)
+			}
+
+			if err == nil {
+				// Success
+				break
+			}
+
 			lastErr = err
-			s.logger.Warn("provider call failed", "provider", target.ProviderID, "model", target.ModelID, "error", err)
+			s.logger.Warn("provider call failed", "provider", target.ProviderID, "model", target.ModelID, "attempt", attempt+1, "error", err)
+
+			// Check if we should retry
+			if s.retryer != nil && s.retryer.ShouldRetry(attempt, err) {
+				if waitErr := s.retryer.WaitForRetry(ctx, attempt); waitErr != nil {
+					// Context cancelled, don't retry
+					break
+				}
+				continue
+			}
+
+			// Not retryable or max attempts reached
+			break
+		}
+
+		if err != nil {
 			telemetry.LLMProviderErrors.WithLabelValues(target.ProviderID, "request_failed").Inc()
 			// Record error for health tracking
 			if s.healthTracker != nil {
@@ -119,7 +181,10 @@ func (s *ChatService) Complete(ctx context.Context, tc *middleware.TenantContext
 // CompleteStream executes the streaming chat completion pipeline.
 // It returns a channel for streaming events and a callback to record usage after streaming completes.
 func (s *ChatService) CompleteStream(ctx context.Context, tc *middleware.TenantContext, req *openai.ChatCompletionRequest) (<-chan adapter.StreamEvent, func(promptTokens, completionTokens int, latencyMs int), error) {
-	targets := s.resolveTargets(req.Model)
+	// Calculate content length for conditional routing
+	contentLength := calculateContentLength(req.Messages)
+
+	targets := s.resolveTargets(req.Model, contentLength)
 	if len(targets) == 0 {
 		return nil, nil, apierr.New(apierr.CodeModelNotFound, fmt.Sprintf("model %q not found", req.Model))
 	}
@@ -144,16 +209,70 @@ func (s *ChatService) CompleteStream(ctx context.Context, tc *middleware.TenantC
 			continue
 		}
 
+		// Check circuit breaker state - skip if open
+		if s.breakerPool != nil && !s.breakerPool.IsAvailable(target.ProviderID, target.ModelID) {
+			s.logger.Warn("circuit breaker open, skipping provider for stream", "provider", target.ProviderID, "model", target.ModelID)
+			continue
+		}
+
 		reqCopy := *req
 		reqCopy.Stream = true
 		if target.ModelID != "" {
 			reqCopy.Model = target.ModelID
 		}
 
-		ch, err := provider.ChatCompletionStream(ctx, &reqCopy)
-		if err != nil {
+		// Retry loop for this provider (streaming)
+		maxAttempts := 1
+		if s.retryer != nil {
+			maxAttempts = s.retryer.GetMaxAttempts()
+		}
+
+		var ch <-chan adapter.StreamEvent
+		var err error
+
+		for attempt := 0; attempt < maxAttempts; attempt++ {
+			if attempt > 0 {
+				telemetry.RetriesTotal.WithLabelValues(target.ProviderID, target.ModelID, strconv.Itoa(attempt)).Inc()
+			}
+
+			// Execute through circuit breaker if available
+			if s.breakerPool != nil {
+				result, cbErr := s.breakerPool.Execute(target.ProviderID, target.ModelID, func() (interface{}, error) {
+					return provider.ChatCompletionStream(ctx, &reqCopy)
+				})
+				if cbErr != nil {
+					err = cbErr
+					ch = nil
+				} else {
+					ch = result.(<-chan adapter.StreamEvent)
+					err = nil
+				}
+			} else {
+				ch, err = provider.ChatCompletionStream(ctx, &reqCopy)
+			}
+
+			if err == nil {
+				// Success
+				break
+			}
+
 			lastErr = err
-			s.logger.Warn("provider stream failed", "provider", target.ProviderID, "error", err)
+			s.logger.Warn("provider stream failed", "provider", target.ProviderID, "attempt", attempt+1, "error", err)
+
+			// Check if we should retry
+			if s.retryer != nil && s.retryer.ShouldRetry(attempt, err) {
+				if waitErr := s.retryer.WaitForRetry(ctx, attempt); waitErr != nil {
+					// Context cancelled, don't retry
+					break
+				}
+				continue
+			}
+
+			// Not retryable or max attempts reached
+			break
+		}
+
+		if err != nil {
 			// Record error for health tracking
 			if s.healthTracker != nil {
 				s.healthTracker.RecordError(target.ProviderID)
@@ -182,7 +301,7 @@ func (s *ChatService) CompleteStream(ctx context.Context, tc *middleware.TenantC
 // resolveTargets finds the routing targets for a given model.
 // Uses the configured routing mode and the router infrastructure.
 // Only providers that support the requested model are included.
-func (s *ChatService) resolveTargets(model string) []domain.RoutingTarget {
+func (s *ChatService) resolveTargets(model string, contentLength int) []domain.RoutingTarget {
 	// Get all registered providers
 	providers := s.registry.ListProviders()
 	if len(providers) == 0 {
@@ -239,7 +358,8 @@ func (s *ChatService) resolveTargets(model string) []domain.RoutingTarget {
 
 	// Create routing request
 	routingReq := &domain.RoutingRequest{
-		ModelID: model,
+		ModelID:       model,
+		ContentLength: contentLength,
 	}
 
 	// Get ordered targets from the router
@@ -420,4 +540,26 @@ func isChineseRune(r rune) bool {
 // GetRuneCount returns the rune count in a string.
 func GetRuneCount(s string) int {
 	return utf8.RuneCountInString(s)
+}
+
+// calculateContentLength calculates the total character length of all messages.
+// Used for conditional routing based on content size.
+func calculateContentLength(messages []openai.Message) int {
+	totalLength := 0
+	for _, msg := range messages {
+		switch content := msg.Content.(type) {
+		case string:
+			totalLength += len(content)
+		case []interface{}:
+			// Handle multimodal content (extract text parts)
+			for _, part := range content {
+				if partMap, ok := part.(map[string]interface{}); ok {
+					if text, ok := partMap["text"].(string); ok {
+						totalLength += len(text)
+					}
+				}
+			}
+		}
+	}
+	return totalLength
 }

@@ -11,6 +11,14 @@ import {
   LayoutDashboard,
   Users,
   RefreshCw,
+  FileText,
+  BarChart3,
+  Server,
+  Settings,
+  Shield,
+  GitBranch,
+  CreditCard,
+  Key,
   LogOut,
   Menu,
   X,
@@ -58,18 +66,58 @@ export default function AdminLayout({
   const navItems: NavItem[] = [
     {
       href: '/admin/dashboard',
-      label: t('overview'),
+      label: t('nav.dashboard'),
       icon: <LayoutDashboard className="h-5 w-5" />,
     },
     {
       href: '/admin/dashboard/users',
-      label: t('userManagement'),
+      label: t('nav.users'),
       icon: <Users className="h-5 w-5" />,
     },
     {
       href: '/admin/dashboard/refunds',
-      label: t('refunds'),
+      label: t('nav.refunds'),
       icon: <RefreshCw className="h-5 w-5" />,
+    },
+    {
+      href: '/admin/dashboard/audit',
+      label: t('nav.audit'),
+      icon: <FileText className="h-5 w-5" />,
+    },
+    {
+      href: '/admin/dashboard/analytics',
+      label: t('nav.analytics'),
+      icon: <BarChart3 className="h-5 w-5" />,
+    },
+    {
+      href: '/admin/dashboard/providers',
+      label: t('nav.providers'),
+      icon: <Server className="h-5 w-5" />,
+    },
+    {
+      href: '/admin/dashboard/settings',
+      label: t('nav.settings'),
+      icon: <Settings className="h-5 w-5" />,
+    },
+    {
+      href: '/admin/dashboard/security',
+      label: t('nav.security'),
+      icon: <Shield className="h-5 w-5" />,
+    },
+    {
+      href: '/admin/dashboard/routing',
+      label: t('nav.routing'),
+      icon: <GitBranch className="h-5 w-5" />,
+    },
+    {
+      href: '/admin/dashboard/payments',
+      label: t('nav.payments'),
+      icon: <CreditCard className="h-5 w-5" />,
+    },
+    {
+      href: '/admin/dashboard/api-keys',
+      label: t('nav.apiKeys'),
+      icon: <Key className="h-5 w-5" />,
     },
   ];
 

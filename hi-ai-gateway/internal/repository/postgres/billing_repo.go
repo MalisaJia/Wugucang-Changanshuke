@@ -873,3 +873,83 @@ func (r *BillingRepository) ListRefundTransactions(ctx context.Context, page, pe
 
 	return transactions, totalCount, nil
 }
+
+// ListAllTransactions retrieves all transactions across all tenants with pagination and filters.
+// statusFilter and methodFilter are optional (empty string means no filter).
+func (r *BillingRepository) ListAllTransactions(ctx context.Context, page, perPage int, statusFilter, methodFilter string) ([]domain.Transaction, int, error) {
+	// Build count query with filters
+	countQuery := `SELECT COUNT(*) FROM transactions WHERE 1=1`
+	args := []interface{}{}
+	argIndex := 1
+
+	if statusFilter != "" {
+		countQuery += fmt.Sprintf(" AND type = $%d", argIndex)
+		args = append(args, statusFilter)
+		argIndex++
+	}
+
+	var totalCount int
+	err := r.db.pool.QueryRow(ctx, countQuery, args...).Scan(&totalCount)
+	if err != nil {
+		return nil, 0, fmt.Errorf("count all transactions: %w", err)
+	}
+
+	offset := (page - 1) * perPage
+	if offset < 0 {
+		offset = 0
+	}
+
+	// Build main query with filters
+	query := `
+		SELECT id, tenant_id, type, amount, balance_after, description, reference_id, created_at
+		FROM transactions
+		WHERE 1=1
+	`
+
+	args = []interface{}{}
+	argIndex = 1
+
+	if statusFilter != "" {
+		query += fmt.Sprintf(" AND type = $%d", argIndex)
+		args = append(args, statusFilter)
+		argIndex++
+	}
+
+	query += fmt.Sprintf(" ORDER BY created_at DESC LIMIT $%d OFFSET $%d", argIndex, argIndex+1)
+	args = append(args, perPage, offset)
+
+	rows, err := r.db.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("query all transactions: %w", err)
+	}
+	defer rows.Close()
+
+	var transactions []domain.Transaction
+	for rows.Next() {
+		var t domain.Transaction
+		var refID *string
+		err := rows.Scan(
+			&t.ID,
+			&t.TenantID,
+			&t.Type,
+			&t.Amount,
+			&t.BalanceAfter,
+			&t.Description,
+			&refID,
+			&t.CreatedAt,
+		)
+		if err != nil {
+			return nil, 0, fmt.Errorf("scan transaction row: %w", err)
+		}
+		if refID != nil {
+			t.ReferenceID = *refID
+		}
+		transactions = append(transactions, t)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("iterate transactions: %w", err)
+	}
+
+	return transactions, totalCount, nil
+}

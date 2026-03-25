@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -15,11 +16,29 @@ type Config struct {
 	Redis     RedisConfig      `yaml:"redis"`
 	Auth      AuthConfig       `yaml:"auth"`
 	Providers []ProviderConfig `yaml:"providers"`
-	Routing   RoutingConfig    `yaml:"routing"`
-	RateLimit RateLimitConfig  `yaml:"rate_limit"`
-	Metrics   MetricsConfig    `yaml:"metrics"`
-	Log       LogConfig        `yaml:"log"`
-	Payment   PaymentConfig    `yaml:"payment"`
+	Routing        RoutingConfig        `yaml:"routing"`
+	RateLimit      RateLimitConfig      `yaml:"rate_limit"`
+	Metrics        MetricsConfig        `yaml:"metrics"`
+	Log            LogConfig            `yaml:"log"`
+	Payment        PaymentConfig        `yaml:"payment"`
+	Retry          RetryConfig          `yaml:"retry"`
+	CircuitBreaker CircuitBreakerConfig `yaml:"circuit_breaker"`
+}
+
+// RetryConfig holds retry configuration with exponential backoff.
+type RetryConfig struct {
+	MaxAttempts       int           `yaml:"max_attempts"`
+	InitialBackoff    time.Duration `yaml:"initial_backoff"`
+	MaxBackoff        time.Duration `yaml:"max_backoff"`
+	BackoffMultiplier float64       `yaml:"backoff_multiplier"`
+}
+
+// CircuitBreakerConfig holds circuit breaker configuration.
+type CircuitBreakerConfig struct {
+	FailureThreshold int           `yaml:"failure_threshold"`
+	SuccessThreshold int           `yaml:"success_threshold"`
+	Timeout          time.Duration `yaml:"timeout"`
+	Window           time.Duration `yaml:"window"`
 }
 
 type ServerConfig struct {
@@ -211,6 +230,34 @@ func applyDefaults(cfg *Config) {
 	}
 	if cfg.Routing.HealthCheck.ErrorThreshold == 0 {
 		cfg.Routing.HealthCheck.ErrorThreshold = 5
+	}
+
+	// Retry defaults
+	if cfg.Retry.MaxAttempts == 0 {
+		cfg.Retry.MaxAttempts = 3
+	}
+	if cfg.Retry.InitialBackoff == 0 {
+		cfg.Retry.InitialBackoff = 200 * time.Millisecond
+	}
+	if cfg.Retry.MaxBackoff == 0 {
+		cfg.Retry.MaxBackoff = 5 * time.Second
+	}
+	if cfg.Retry.BackoffMultiplier == 0 {
+		cfg.Retry.BackoffMultiplier = 2.0
+	}
+
+	// Circuit breaker defaults
+	if cfg.CircuitBreaker.FailureThreshold == 0 {
+		cfg.CircuitBreaker.FailureThreshold = 5
+	}
+	if cfg.CircuitBreaker.SuccessThreshold == 0 {
+		cfg.CircuitBreaker.SuccessThreshold = 2
+	}
+	if cfg.CircuitBreaker.Timeout == 0 {
+		cfg.CircuitBreaker.Timeout = 30 * time.Second
+	}
+	if cfg.CircuitBreaker.Window == 0 {
+		cfg.CircuitBreaker.Window = 60 * time.Second
 	}
 }
 

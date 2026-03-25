@@ -1,6 +1,6 @@
 module github.com/hi-ai/gateway
 
-go 1.22
+go 1.22.0
 
 require (
 	github.com/gofiber/fiber/v2 v2.52.5
@@ -9,6 +9,7 @@ require (
 	github.com/jackc/pgx/v5 v5.7.2
 	github.com/prometheus/client_golang v1.20.4
 	github.com/redis/go-redis/v9 v9.7.0
+	github.com/sony/gobreaker/v2 v2.4.0
 	github.com/stripe/stripe-go/v76 v76.25.0
 	github.com/valyala/fasthttp v1.55.0
 	golang.org/x/crypto v0.31.0

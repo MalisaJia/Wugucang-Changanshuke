@@ -167,6 +167,22 @@ func NewServer(app *App) *fiber.App {
 	adminGroup.Get("/refund-requests", app.ManagementHandler.ListRefundRequests)
 	adminGroup.Post("/refund", app.ManagementHandler.ProcessRefund)
 
+	// Security configuration routes (admin only)
+	adminGroup.Get("/security/guardrails", app.SecurityHandler.GetGuardrails)
+	adminGroup.Put("/security/guardrails", app.SecurityHandler.UpdateGuardrails)
+
+	// Routing configuration routes (admin only)
+	adminGroup.Get("/routing/config", app.RoutingHandler.GetConfig)
+	adminGroup.Put("/routing/config", app.RoutingHandler.UpdateConfig)
+	adminGroup.Get("/routing/breakers", app.RoutingHandler.GetBreakers)
+	adminGroup.Get("/routing/rules", app.RoutingHandler.GetRules)
+
+	// Payment orders routes (admin only)
+	adminGroup.Get("/payments", app.PaymentsHandler.ListPayments)
+
+	// API keys audit routes (admin only)
+	adminGroup.Get("/api-keys", app.APIKeysAdminHandler.ListKeys)
+
 	// Webhook routes (no auth, signature verification)
 	webhooks := server.Group("/api/webhooks")
 	webhooks.Post("/stripe", app.WebhookHandler.StripeWebhook(app.PaymentProviders["stripe"]))
