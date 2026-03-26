@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/gofiber/fiber/v2"
 	"github.com/hi-ai/gateway/internal/adapter"
 	openaiAdapter "github.com/hi-ai/gateway/internal/adapter/openai"
 	"github.com/hi-ai/gateway/internal/config"
@@ -60,9 +61,15 @@ type App struct {
 	RoutingHandler       *admin.RoutingHandler
 	PaymentsHandler      *admin.PaymentsHandler
 	APIKeysAdminHandler  *admin.APIKeysAdminHandler
+	ModelsAdminHandler   *admin.ModelsAdminHandler
 	// Infrastructure
 	Guardrail            *middleware.Guardrail
 	BreakerPool          *middleware.BreakerPool
+	// Model management
+	ModelConfigRepo      *postgres.ModelConfigRepository
+	ModelSvc             *service.ModelService
+	// Fix: Store server reference for proper graceful shutdown
+	server               *fiber.App
 }
 
 // New creates and wires all application dependencies.
@@ -104,6 +111,7 @@ func New(cfg *config.Config) (*App, error) {
 	auditRepo := postgres.NewAuditRepository(db)
 	providerConfigRepo := postgres.NewProviderConfigRepository(db)
 	billingRepo := postgres.NewBillingRepository(db)
+	modelConfigRepo := postgres.NewModelConfigRepository(db)
 
 	// Initialize adapter registry
 	registry := adapter.NewRegistry()
@@ -159,11 +167,18 @@ func New(cfg *config.Config) (*App, error) {
 	chatSvc := service.NewChatService(registry, logger, healthTracker, routingMode, billingSvc, retryer, breakerPool)
 	userSvc := service.NewUserService(userRepo, tenantRepo, cfg.Auth.JWTSecret, cfg.Auth.AccessTokenTTL, cfg.Auth.RefreshTokenTTL, billingSvc)
 	apiKeySvc := service.NewAPIKeyService()
+	modelSvc := service.NewModelService(modelConfigRepo, logger)
+
+	// Sync models from config to database at startup
+	if err := modelSvc.SyncModelsFromConfig(ctx, cfg.Providers); err != nil {
+		logger.Warn("failed to sync models from config", "error", err)
+		// Don't fail startup - continue anyway
+	}
 
 	// Initialize handlers
 	chatHandler := v1.NewChatHandler(chatSvc)
 	jwtChatHandler := admin.NewJWTChatHandler(chatSvc)
-	modelsHandler := v1.NewModelsHandler(registry)
+	modelsHandler := v1.NewModelsHandler(registry, modelConfigRepo)
 	healthHandler := handler.NewHealthHandler()
 	authHandler := auth.NewAuthHandler(userSvc, cfg.Auth.JWTSecret)
 
@@ -209,6 +224,7 @@ func New(cfg *config.Config) (*App, error) {
 	routingHandler := admin.NewRoutingHandler(cfg, breakerPool, logger)
 	paymentsHandler := admin.NewPaymentsHandler(billingRepo, logger)
 	apiKeysAdminHandler := admin.NewAPIKeysAdminHandler(apiKeyRepo, logger)
+	modelsAdminHandler := admin.NewModelsAdminHandler(modelSvc, cfg, logger)
 
 	app := &App{
 		Config:             cfg,
@@ -247,9 +263,13 @@ func New(cfg *config.Config) (*App, error) {
 		RoutingHandler:      routingHandler,
 		PaymentsHandler:     paymentsHandler,
 		APIKeysAdminHandler: apiKeysAdminHandler,
+		ModelsAdminHandler:  modelsAdminHandler,
 		// Infrastructure
 		Guardrail:           guardrail,
 		BreakerPool:         breakerPool,
+		// Model management
+		ModelConfigRepo:     modelConfigRepo,
+		ModelSvc:            modelSvc,
 	}
 
 	return app, nil
@@ -257,15 +277,35 @@ func New(cfg *config.Config) (*App, error) {
 
 // Run starts the HTTP server.
 func (a *App) Run() error {
-	server := NewServer(a)
+	a.server = NewServer(a)
 	addr := a.Config.Address()
 	a.Logger.Info("starting WuguHub gateway", "address", addr)
-	return server.Listen(addr)
+	return a.server.Listen(addr)
 }
 
 // Shutdown gracefully shuts down the application.
-func (a *App) Shutdown() error {
+// Fix: Now accepts context for timeout control and properly shuts down HTTP server
+func (a *App) Shutdown(ctx context.Context) error {
 	a.Logger.Info("shutting down WuguHub gateway")
+
+	var shutdownErr error
+
+	// Fix: Gracefully shutdown HTTP server first (drains in-flight requests)
+	if a.server != nil {
+		a.Logger.Info("shutting down HTTP server...")
+		if err := a.server.ShutdownWithContext(ctx); err != nil {
+			a.Logger.Error("HTTP server shutdown error", "error", err)
+			shutdownErr = err
+		} else {
+			a.Logger.Info("HTTP server shutdown complete")
+		}
+	}
+
+	// Stop breaker pool cleanup goroutine
+	if a.BreakerPool != nil {
+		a.BreakerPool.Stop()
+		a.Logger.Info("breaker pool cleanup stopped")
+	}
 
 	// Close database connection
 	if a.DB != nil {
@@ -282,7 +322,7 @@ func (a *App) Shutdown() error {
 		}
 	}
 
-	return nil
+	return shutdownErr
 }
 
 func init() {

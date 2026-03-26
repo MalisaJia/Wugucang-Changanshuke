@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
+import { useRouter, useParams } from 'next/navigation';
 import {
   Server,
   Plus,
@@ -36,6 +37,10 @@ interface EditFormData {
 export default function ProvidersPage() {
   const t = useTranslations('providers');
   const { user } = useAuthStore();
+  const router = useRouter();
+  const params = useParams();
+  const locale = (params.locale as string) || 'en';
+  
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +56,23 @@ export default function ProvidersPage() {
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const isOwnerOrAdmin = user?.role === 'owner' || user?.role === 'admin';
+  const isOwnerOrAdmin = user?.is_platform_admin === true;
+
+  // Admin route guard
+  useEffect(() => {
+    if (user && !user.is_platform_admin) {
+      router.replace(`/${locale}/dashboard`);
+    }
+  }, [user, locale, router]);
+
+  // If not admin, don't render content
+  if (!user || !user.is_platform_admin) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   const fetchProviders = useCallback(async () => {
     try {

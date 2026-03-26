@@ -13,6 +13,8 @@ require (
 	github.com/stripe/stripe-go/v76 v76.25.0
 	github.com/valyala/fasthttp v1.55.0
 	golang.org/x/crypto v0.31.0
+	golang.org/x/net v0.29.0
+	golang.org/x/sync v0.10.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -36,7 +38,6 @@ require (
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
-	golang.org/x/sync v0.10.0 // indirect
 	golang.org/x/sys v0.28.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect

@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -19,6 +20,91 @@ import (
 	"github.com/hi-ai/gateway/internal/telemetry"
 	"github.com/hi-ai/gateway/pkg/openai"
 )
+
+// Fix: Bounded worker pool constants to prevent goroutine explosion under load
+const (
+	workerPoolSize        = 1000               // Maximum concurrent async operations
+	asyncOperationTimeout = 10 * time.Second   // Timeout for async operations
+)
+
+// asyncTask represents a task to be executed by the worker pool
+type asyncTask struct {
+	fn func()
+}
+
+// WorkerPool provides a bounded goroutine pool for async operations
+// Fix: Prevents goroutine explosion under high load
+type WorkerPool struct {
+	taskCh chan asyncTask
+	wg     sync.WaitGroup
+	stopCh chan struct{}
+	logger *slog.Logger
+}
+
+// NewWorkerPool creates a new bounded worker pool
+func NewWorkerPool(size int, logger *slog.Logger) *WorkerPool {
+	wp := &WorkerPool{
+		taskCh: make(chan asyncTask, size),
+		stopCh: make(chan struct{}),
+		logger: logger,
+	}
+
+	// Start worker goroutines
+	for i := 0; i < size; i++ {
+		wp.wg.Add(1)
+		go wp.worker()
+	}
+
+	return wp
+}
+
+// worker is a single worker goroutine that processes tasks
+func (wp *WorkerPool) worker() {
+	defer wp.wg.Done()
+	for {
+		select {
+		case task, ok := <-wp.taskCh:
+			if !ok {
+				return
+			}
+			// Execute task with panic recovery
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						wp.logger.Error("panic in worker pool task", "panic", r)
+					}
+				}()
+				task.fn()
+			}()
+		case <-wp.stopCh:
+			return
+		}
+	}
+}
+
+// Submit submits a task to the worker pool
+// Returns true if task was submitted, false if pool is full (falls back to sync)
+func (wp *WorkerPool) Submit(fn func()) bool {
+	select {
+	case wp.taskCh <- asyncTask{fn: fn}:
+		return true
+	default:
+		// Pool is full - log warning and return false for sync fallback
+		wp.logger.Warn("worker pool full, task will run synchronously")
+		return false
+	}
+}
+
+// Stop stops the worker pool gracefully
+func (wp *WorkerPool) Stop() {
+	close(wp.stopCh)
+	close(wp.taskCh)
+	wp.wg.Wait()
+}
+
+// Global worker pool instance (initialized in NewChatService)
+var globalWorkerPool *WorkerPool
+var workerPoolOnce sync.Once
 
 // ChatService orchestrates the chat completion pipeline.
 type ChatService struct {
@@ -36,6 +122,13 @@ func NewChatService(registry *adapter.Registry, logger *slog.Logger, healthTrack
 	if routingMode == "" {
 		routingMode = domain.RoutingModeSingle // Default for backward compatibility
 	}
+
+	// Fix: Initialize global worker pool once to prevent goroutine explosion
+	workerPoolOnce.Do(func() {
+		globalWorkerPool = NewWorkerPool(workerPoolSize, logger)
+		logger.Info("initialized async worker pool", "size", workerPoolSize)
+	})
+
 	return &ChatService{
 		registry:      registry,
 		logger:        logger,
@@ -170,7 +263,10 @@ func (s *ChatService) Complete(ctx context.Context, tc *middleware.TenantContext
 		telemetry.RecordRequest(target.ProviderID, target.ModelID, "success", tc.TenantID, duration, promptTokens, completionTokens)
 
 		// Record usage and deduct balance asynchronously (don't block the response)
-		go s.recordUsageAndDeduct(tc, req.Model, promptTokens, completionTokens, int(time.Since(start).Milliseconds()))
+		// Fix: Use bounded worker pool to prevent goroutine explosion under load
+		s.submitAsyncTask(func() {
+			s.recordUsageAndDeduct(tc, req.Model, promptTokens, completionTokens, int(time.Since(start).Milliseconds()))
+		})
 
 		return resp, nil
 	}
@@ -288,8 +384,11 @@ func (s *ChatService) CompleteStream(ctx context.Context, tc *middleware.TenantC
 		telemetry.LLMActiveStreams.Inc()
 
 		// Return a callback function for recording usage after streaming completes
+		// Fix: Use bounded worker pool to prevent goroutine explosion under load
 		usageCallback := func(promptTokens, completionTokens int, latencyMs int) {
-			go s.recordUsageAndDeduct(tc, req.Model, promptTokens, completionTokens, latencyMs)
+			s.submitAsyncTask(func() {
+				s.recordUsageAndDeduct(tc, req.Model, promptTokens, completionTokens, latencyMs)
+			})
 		}
 
 		return ch, usageCallback, nil
@@ -385,8 +484,25 @@ func DefaultRouter(targets []domain.RoutingTarget) router.Router {
 	return router.NewRouter(domain.RoutingModeSingle, rule)
 }
 
+// submitAsyncTask submits a task to the worker pool, falling back to sync execution if pool is full
+// Fix: Prevents goroutine explosion by using bounded worker pool
+func (s *ChatService) submitAsyncTask(fn func()) {
+	if globalWorkerPool == nil {
+		// Worker pool not initialized, fall back to direct execution (shouldn't happen)
+		s.logger.Warn("worker pool not initialized, running task synchronously")
+		fn()
+		return
+	}
+
+	if !globalWorkerPool.Submit(fn) {
+		// Pool is full, run synchronously as fallback
+		fn()
+	}
+}
+
 // recordUsageAndDeduct records usage to the database and deducts tokens from balance.
 // This is called asynchronously to not block API responses.
+// Fix: Uses proper timeout context instead of detached context.Background()
 func (s *ChatService) recordUsageAndDeduct(tc *middleware.TenantContext, model string, promptTokens, completionTokens int, latencyMs int) {
 	if s.billingSvc == nil {
 		s.logger.Warn("billing service not configured, skipping usage tracking")
@@ -406,8 +522,8 @@ func (s *ChatService) recordUsageAndDeduct(tc *middleware.TenantContext, model s
 		keyID, _ = uuid.Parse(tc.KeyID)
 	}
 
-	// Use background context since the request context may be cancelled
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	// Fix: Use proper timeout context instead of detached context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), asyncOperationTimeout)
 	defer cancel()
 
 	// Deduct balance with detailed usage

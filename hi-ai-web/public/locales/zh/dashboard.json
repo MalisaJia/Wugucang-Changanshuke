@@ -8,6 +8,7 @@
   "team": "团队",
   "analytics": "数据分析",
   "providers": "供应商",
+  "modelManagement": "模型管理",
   "settings": "设置",
   "auditLog": "审计日志",
   "welcome": "欢迎回来",
@@ -44,6 +45,18 @@
   "recentActivity": {
     "title": "最近活动",
     "noActivity": "暂无活动记录"
+  },
+  "activity": {
+    "chatCompletion": "发送了聊天消息",
+    "apiKeyCreate": "创建了 API Key",
+    "apiKeyRevoke": "撤销了 API Key",
+    "providerUpdate": "更新了供应商配置",
+    "userLogin": "登录了账户",
+    "userRegister": "注册了账户",
+    "billingRecharge": "账户充值",
+    "profileUpdate": "更新了个人资料",
+    "settingsUpdate": "更新了设置",
+    "unknownAction": "未知操作"
   },
   "analyticsPage": {
     "title": "用量分析",

@@ -11,7 +11,19 @@
     "notLoggedIn": "Please log in to start chatting.",
     "thinking": "Thinking...",
     "errorOccurred": "An error occurred. Please try again.",
+    "streamTimeout": "Connection timed out. The server stopped responding. Please try again.",
     "welcome": "Welcome! Select a model and start chatting.",
-    "tokens": "tokens"
+    "tokens": "tokens",
+    "chatHistory": "Chat History",
+    "noConversations": "No conversations yet",
+    "deleteChat": "Delete",
+    "justNow": "Just now",
+    "minutesAgo": "{{count}} min ago",
+    "hoursAgo": "{{count}} hr ago",
+    "daysAgo": "{{count}} days ago",
+    "untitled": "New conversation",
+    "historyTip": "Only the last 10 conversations are kept. Please save important information promptly.",
+    "collapseHistory": "Collapse",
+    "expandHistory": "Expand"
   }
 }

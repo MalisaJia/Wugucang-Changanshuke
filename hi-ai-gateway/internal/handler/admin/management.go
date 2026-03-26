@@ -28,16 +28,15 @@ func NewManagementHandler(userRepo *postgres.UserRepository, billingRepo *postgr
 	}
 }
 
-// requireAdmin checks if the user has admin or owner role.
+// requireAdmin checks if the user is a platform admin.
 func (h *ManagementHandler) requireAdmin(c *fiber.Ctx) (*middleware.TenantContext, error) {
 	tc := middleware.GetTenantContext(c)
 	if tc == nil {
 		return nil, apierr.Unauthorized("authentication required")
 	}
 
-	role := domain.Role(tc.Role)
-	if !role.HasPermission(domain.RoleAdmin) {
-		return nil, apierr.Forbidden("admin access required")
+	if !tc.IsPlatformAdmin {
+		return nil, apierr.Forbidden("platform admin access required")
 	}
 
 	return tc, nil

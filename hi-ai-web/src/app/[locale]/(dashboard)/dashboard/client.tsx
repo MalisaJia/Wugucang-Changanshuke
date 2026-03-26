@@ -21,6 +21,10 @@ import {
   Clock,
   Wallet,
   AlertTriangle,
+  MessageSquare,
+  LogIn,
+  User,
+  Settings,
 } from 'lucide-react';
 
 // Dashboard data state interface
@@ -119,6 +123,112 @@ function formatTokens(num: number): string {
 // Format currency (cents to yuan)
 function formatCurrency(cents: number): string {
   return `¥${(cents / 100).toFixed(2)}`;
+}
+
+// Activity display interface
+interface ActivityDisplay {
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+}
+
+// Get activity display based on action type
+function getActivityDisplay(activity: AuditLog, t: ReturnType<typeof useTranslations>): ActivityDisplay {
+  const action = activity.action || '';
+  const resourceType = activity.resource_type || '';
+  const resourceId = activity.resource_id || '';
+  const detail = resourceType + (resourceId ? `: ${resourceId}` : '');
+
+  switch (action) {
+    case 'chat_completion':
+      return {
+        icon: <MessageSquare className="h-4 w-4 text-blue-500" />,
+        title: t('activity.chatCompletion'),
+        subtitle: detail,
+      };
+    case 'api_key_create':
+    case 'create':
+      if (resourceType === 'api_key' || resourceType.includes('key')) {
+        return {
+          icon: <Key className="h-4 w-4 text-green-500" />,
+          title: t('activity.apiKeyCreate'),
+          subtitle: resourceId,
+        };
+      }
+      return {
+        icon: <Activity className="h-4 w-4 text-gray-500" />,
+        title: action,
+        subtitle: detail,
+      };
+    case 'api_key_revoke':
+    case 'revoke':
+      return {
+        icon: <Key className="h-4 w-4 text-red-500" />,
+        title: t('activity.apiKeyRevoke'),
+        subtitle: resourceId,
+      };
+    case 'provider_update':
+      return {
+        icon: <Settings className="h-4 w-4 text-orange-500" />,
+        title: t('activity.providerUpdate'),
+        subtitle: resourceId,
+      };
+    case 'user_login':
+    case 'login':
+      return {
+        icon: <LogIn className="h-4 w-4 text-purple-500" />,
+        title: t('activity.userLogin'),
+        subtitle: '',
+      };
+    case 'user_register':
+    case 'register':
+      return {
+        icon: <User className="h-4 w-4 text-indigo-500" />,
+        title: t('activity.userRegister'),
+        subtitle: '',
+      };
+    case 'billing_recharge':
+    case 'recharge':
+      return {
+        icon: <CreditCard className="h-4 w-4 text-emerald-500" />,
+        title: t('activity.billingRecharge'),
+        subtitle: detail,
+      };
+    case 'profile_update':
+      return {
+        icon: <User className="h-4 w-4 text-cyan-500" />,
+        title: t('activity.profileUpdate'),
+        subtitle: '',
+      };
+    default:
+      // Backward compatibility: infer from action field
+      if (action === 'post' && (!resourceType || resourceType === 'unknown')) {
+        return {
+          icon: <MessageSquare className="h-4 w-4 text-blue-500" />,
+          title: t('activity.chatCompletion'),
+          subtitle: '',
+        };
+      }
+      if (action === 'update' && resourceType?.includes('provider_config')) {
+        return {
+          icon: <Settings className="h-4 w-4 text-orange-500" />,
+          title: t('activity.providerUpdate'),
+          subtitle: resourceId || resourceType.replace('provider_config: ', ''),
+        };
+      }
+      if (action === 'update') {
+        return {
+          icon: <Settings className="h-4 w-4 text-orange-500" />,
+          title: t('activity.settingsUpdate'),
+          subtitle: detail,
+        };
+      }
+      return {
+        icon: <Activity className="h-4 w-4 text-gray-500" />,
+        title: action || t('activity.unknownAction'),
+        subtitle: detail,
+      };
+  }
 }
 
 // Balance card component
@@ -295,7 +405,7 @@ export default function DashboardOverviewPage() {
           <QuickActionCard
             title={t('quickActions.manageProviders')}
             icon={<Server className="h-5 w-5" />}
-            href="/dashboard/settings"
+            href="/dashboard/providers"
           />
         </div>
       </div>
@@ -321,28 +431,33 @@ export default function DashboardOverviewPage() {
             </div>
           ) : recentActivity.length > 0 ? (
             <ul className="divide-y divide-border">
-              {recentActivity.map((activity) => (
-                <li
-                  key={activity.id}
-                  className="flex items-center justify-between p-4 hover:bg-accent/50 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-muted">
-                      <Activity className="h-4 w-4 text-muted-foreground" />
+              {recentActivity.map((activity) => {
+                const display = getActivityDisplay(activity, t);
+                return (
+                  <li
+                    key={activity.id}
+                    className="flex items-center justify-between p-4 hover:bg-accent/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-muted">
+                        {display.icon}
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm">{display.title}</p>
+                        {display.subtitle && (
+                          <p className="text-xs text-muted-foreground">
+                            {display.subtitle}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium text-sm">{activity.action}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {activity.resource_type}{activity.resource_id ? `: ${activity.resource_id}` : ''}
-                      </p>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Clock className="h-3 w-3" />
+                      {formatRelativeTime(activity.created_at, t)}
                     </div>
-                  </div>
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Clock className="h-3 w-3" />
-                    {formatRelativeTime(activity.created_at, t)}
-                  </div>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
           ) : (
             <div className="p-8 text-center text-muted-foreground">

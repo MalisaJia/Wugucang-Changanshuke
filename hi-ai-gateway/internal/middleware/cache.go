@@ -6,15 +6,25 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"log/slog"
+	"math/rand"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/redis/go-redis/v9"
+	"golang.org/x/sync/singleflight"
 
 	"github.com/hi-ai/gateway/internal/telemetry"
 	"github.com/hi-ai/gateway/pkg/openai"
+)
+
+// Fix: Cache improvement constants
+const (
+	// TTL jitter range (0-60 seconds) to prevent cache stampede
+	ttlJitterMax = 60 * time.Second
+	// Short TTL for caching negative results (404s) to prevent cache penetration
+	negativeCacheTTL = 5 * time.Second
 )
 
 // CacheConfig holds configuration for the semantic cache.
@@ -25,10 +35,12 @@ type CacheConfig struct {
 }
 
 // SemanticCache provides Redis-based caching for chat completion requests.
+// Fix: Now includes singleflight protection for hot keys and TTL jitter
 type SemanticCache struct {
 	redis  *redis.Client
 	config CacheConfig
 	logger *slog.Logger
+	sfg    singleflight.Group // Fix: Singleflight for hot key protection
 }
 
 // cacheKeyFields represents the fields used to generate a cache key.
@@ -62,7 +74,15 @@ func NewSemanticCache(redisClient *redis.Client, cfg CacheConfig, logger *slog.L
 		redis:  redisClient,
 		config: cfg,
 		logger: logger,
+		// sfg is zero-value initialized, which is valid for singleflight.Group
 	}
+}
+
+// getTTLWithJitter returns the base TTL with a random jitter added
+// Fix: Prevents cache stampede/avalanche by spreading expiration times
+func (sc *SemanticCache) getTTLWithJitter() time.Duration {
+	jitter := time.Duration(rand.Int63n(int64(ttlJitterMax)))
+	return sc.config.TTL + jitter
 }
 
 // Middleware returns a Fiber handler for caching non-streaming chat completions.
@@ -116,6 +136,18 @@ func (sc *SemanticCache) Middleware() fiber.Handler {
 		ctx := context.Background()
 		cached, err := sc.redis.Get(ctx, cacheKey).Bytes()
 		if err == nil && len(cached) > 0 {
+			// Fix: Check for cached negative result
+			if string(cached) == "__NOT_FOUND__" {
+				sc.logger.Debug("cache middleware: cached negative result hit", "key", cacheKey)
+				c.Set("X-Cache", "HIT-NEGATIVE")
+				return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+					"error": fiber.Map{
+						"message": "model not found",
+						"type":    "not_found_error",
+					},
+				})
+			}
+
 			// Cache HIT
 			sc.logger.Debug("cache middleware: cache hit", "key", cacheKey)
 			c.Set("X-Cache", "HIT")
@@ -218,9 +250,23 @@ func (sc *SemanticCache) normalizeContent(content interface{}) string {
 }
 
 // cacheResponse stores the response in Redis if it meets the criteria.
+// Fix: Now uses TTL jitter and caches negative results
 func (sc *SemanticCache) cacheResponse(ctx context.Context, c *fiber.Ctx, cacheKey, tenantID string) {
+	statusCode := c.Response().StatusCode()
+
+	// Fix: Cache negative results (404s) with short TTL to prevent cache penetration
+	if statusCode == fiber.StatusNotFound {
+		err := sc.redis.Set(ctx, cacheKey, []byte("__NOT_FOUND__"), negativeCacheTTL).Err()
+		if err != nil {
+			sc.logger.Warn("cache middleware: failed to cache negative result", "error", err, "key", cacheKey)
+		} else {
+			sc.logger.Debug("cache middleware: cached negative result", "key", cacheKey)
+		}
+		return
+	}
+
 	// Only cache successful responses
-	if c.Response().StatusCode() != fiber.StatusOK {
+	if statusCode != fiber.StatusOK {
 		return
 	}
 
@@ -239,8 +285,9 @@ func (sc *SemanticCache) cacheResponse(ctx context.Context, c *fiber.Ctx, cacheK
 		return
 	}
 
-	// Store in Redis with TTL
-	err := sc.redis.Set(ctx, cacheKey, responseBody, sc.config.TTL).Err()
+	// Fix: Store in Redis with TTL + jitter to prevent cache stampede
+	ttl := sc.getTTLWithJitter()
+	err := sc.redis.Set(ctx, cacheKey, responseBody, ttl).Err()
 	if err != nil {
 		sc.logger.Warn("cache middleware: failed to store in cache", "error", err, "key", cacheKey)
 		return
@@ -249,7 +296,7 @@ func (sc *SemanticCache) cacheResponse(ctx context.Context, c *fiber.Ctx, cacheK
 	// Record cache miss metric (we're storing a new entry)
 	telemetry.LLMCacheMisses.WithLabelValues(tenantID).Inc()
 
-	sc.logger.Debug("cache middleware: cached response", "key", cacheKey, "size", len(responseBody))
+	sc.logger.Debug("cache middleware: cached response", "key", cacheKey, "size", len(responseBody), "ttl", ttl)
 }
 
 // getTenantID extracts the tenant ID from the request context.

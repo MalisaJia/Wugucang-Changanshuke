@@ -92,13 +92,18 @@
     "updatedAt": "更新时间",
     "customSettings": "自定义设置",
 
+    "teamManagementDesc": "管理平台团队和成员角色。",
+    "modelManagementDesc": "配置模型可见性、优先级和展示设置。",
+
     "nav": {
       "dashboard": "管理仪表板",
       "users": "用户管理",
       "refunds": "退款管理",
       "audit": "审计日志",
       "analytics": "使用分析",
+      "team": "团队管理",
       "providers": "Provider 管理",
+      "modelManagement": "模型管理",
       "settings": "系统设置",
       "security": "安全配置",
       "routing": "智能路由",

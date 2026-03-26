@@ -15,13 +15,14 @@ import (
 
 // TenantContext holds the authenticated tenant and user information.
 type TenantContext struct {
-	TenantID     string
-	UserID       string
-	KeyID        string
-	Role         string
-	Email        string
-	RateLimitRPM int // Rate limit in requests per minute (from tenant or key)
-	RateLimitTPM int // Rate limit in tokens per minute (from tenant or key)
+	TenantID        string
+	UserID          string
+	KeyID           string
+	Role            string
+	Email           string
+	IsPlatformAdmin bool
+	RateLimitRPM    int // Rate limit in requests per minute (from tenant or key)
+	RateLimitTPM    int // Rate limit in tokens per minute (from tenant or key)
 }
 
 // GetTenantContext retrieves the tenant context from Fiber locals.
@@ -74,10 +75,11 @@ func APIKeyAuth(keyLookup APIKeyLookupFunc) fiber.Handler {
 
 // JWTClaims holds the claims for JWT tokens.
 type JWTClaims struct {
-	UserID   string `json:"user_id"`
-	TenantID string `json:"tenant_id"`
-	Email    string `json:"email"`
-	Role     string `json:"role"`
+	UserID          string `json:"user_id"`
+	TenantID        string `json:"tenant_id"`
+	Email           string `json:"email"`
+	Role            string `json:"role"`
+	IsPlatformAdmin bool   `json:"is_platform_admin"`
 	jwt.RegisteredClaims
 }
 
@@ -106,10 +108,11 @@ func JWTAuth(secret string) fiber.Handler {
 		}
 
 		c.Locals("tenant_ctx", &TenantContext{
-			TenantID: claims.TenantID,
-			UserID:   claims.UserID,
-			Role:     claims.Role,
-			Email:    claims.Email,
+			TenantID:        claims.TenantID,
+			UserID:          claims.UserID,
+			Role:            claims.Role,
+			Email:           claims.Email,
+			IsPlatformAdmin: claims.IsPlatformAdmin,
 		})
 		return c.Next()
 	}

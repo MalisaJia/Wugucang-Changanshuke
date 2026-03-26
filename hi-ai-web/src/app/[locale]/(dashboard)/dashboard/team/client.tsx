@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
+import { useRouter, useParams } from 'next/navigation';
 import {
   getTeamMembers,
   inviteMember,
@@ -39,6 +40,10 @@ const ROLE_COLORS: Record<Role, string> = {
 export default function TeamClient() {
   const t = useTranslations('team');
   const { user } = useAuthStore();
+  const router = useRouter();
+  const params = useParams();
+  const locale = (params.locale as string) || 'en';
+  
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +75,22 @@ export default function TeamClient() {
 
   const currentUserRole = (user?.role as Role) || 'viewer';
   const currentUserRoleLevel = ROLE_HIERARCHY[currentUserRole] || 1;
+
+  // Admin route guard
+  useEffect(() => {
+    if (user && !user.is_platform_admin) {
+      router.replace(`/${locale}/dashboard`);
+    }
+  }, [user, locale, router]);
+
+  // If not admin, don't render content
+  if (!user || !user.is_platform_admin) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
 
   useEffect(() => {
     fetchMembers();

@@ -24,8 +24,8 @@ func NewUserRepository(db *DB) *UserRepository {
 // Create inserts a new user into the database.
 func (r *UserRepository) Create(ctx context.Context, u *domain.User) error {
 	query := `
-		INSERT INTO users (id, tenant_id, email, password_hash, display_name, role, status, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		INSERT INTO users (id, tenant_id, email, password_hash, display_name, role, status, is_platform_admin, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 	`
 
 	_, err := r.db.pool.Exec(ctx, query,
@@ -36,6 +36,7 @@ func (r *UserRepository) Create(ctx context.Context, u *domain.User) error {
 		u.DisplayName,
 		u.Role,
 		u.Status,
+		u.IsPlatformAdmin,
 		u.CreatedAt,
 		u.UpdatedAt,
 	)
@@ -49,7 +50,7 @@ func (r *UserRepository) Create(ctx context.Context, u *domain.User) error {
 // GetByID retrieves a user by ID, excluding soft-deleted records.
 func (r *UserRepository) GetByID(ctx context.Context, id string) (*domain.User, error) {
 	query := `
-		SELECT id, tenant_id, email, password_hash, display_name, role, status, last_login_at, created_at, updated_at, deleted_at
+		SELECT id, tenant_id, email, password_hash, display_name, role, status, is_platform_admin, last_login_at, created_at, updated_at, deleted_at
 		FROM users
 		WHERE id = $1 AND deleted_at IS NULL
 	`
@@ -60,7 +61,7 @@ func (r *UserRepository) GetByID(ctx context.Context, id string) (*domain.User, 
 // GetByEmail retrieves a user by email within a specific tenant, excluding soft-deleted records.
 func (r *UserRepository) GetByEmail(ctx context.Context, tenantID string, email string) (*domain.User, error) {
 	query := `
-		SELECT id, tenant_id, email, password_hash, display_name, role, status, last_login_at, created_at, updated_at, deleted_at
+		SELECT id, tenant_id, email, password_hash, display_name, role, status, is_platform_admin, last_login_at, created_at, updated_at, deleted_at
 		FROM users
 		WHERE tenant_id = $1 AND email = $2 AND deleted_at IS NULL
 	`
@@ -72,7 +73,7 @@ func (r *UserRepository) GetByEmail(ctx context.Context, tenantID string, email 
 // This is useful for login where the tenant context may not be known yet.
 func (r *UserRepository) GetByEmailGlobal(ctx context.Context, email string) (*domain.User, error) {
 	query := `
-		SELECT id, tenant_id, email, password_hash, display_name, role, status, last_login_at, created_at, updated_at, deleted_at
+		SELECT id, tenant_id, email, password_hash, display_name, role, status, is_platform_admin, last_login_at, created_at, updated_at, deleted_at
 		FROM users
 		WHERE email = $1 AND deleted_at IS NULL
 		LIMIT 1
@@ -84,7 +85,7 @@ func (r *UserRepository) GetByEmailGlobal(ctx context.Context, email string) (*d
 // GetByTenantID retrieves all users for a tenant, excluding soft-deleted records.
 func (r *UserRepository) GetByTenantID(ctx context.Context, tenantID string) ([]*domain.User, error) {
 	query := `
-		SELECT id, tenant_id, email, password_hash, display_name, role, status, last_login_at, created_at, updated_at, deleted_at
+		SELECT id, tenant_id, email, password_hash, display_name, role, status, is_platform_admin, last_login_at, created_at, updated_at, deleted_at
 		FROM users
 		WHERE tenant_id = $1 AND deleted_at IS NULL
 		ORDER BY created_at DESC
@@ -195,6 +196,7 @@ func (r *UserRepository) scanUser(ctx context.Context, query string, args ...int
 		&u.DisplayName,
 		&u.Role,
 		&u.Status,
+		&u.IsPlatformAdmin,
 		&u.LastLoginAt,
 		&u.CreatedAt,
 		&u.UpdatedAt,
@@ -221,6 +223,7 @@ func (r *UserRepository) scanUserFromRow(rows pgx.Rows) (*domain.User, error) {
 		&u.DisplayName,
 		&u.Role,
 		&u.Status,
+		&u.IsPlatformAdmin,
 		&u.LastLoginAt,
 		&u.CreatedAt,
 		&u.UpdatedAt,

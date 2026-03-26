@@ -14,7 +14,7 @@
     "selectPayment": "选择支付方式",
     "alipay": "支付宝",
     "wechat": "微信支付",
-    "creditCard": "信用卡",
+    "creditCard": "银行卡",
     "comingSoon": "即将开放",
     "lowBalance": "余额不足！请充值以继续使用。",
     "transactions": "交易记录",

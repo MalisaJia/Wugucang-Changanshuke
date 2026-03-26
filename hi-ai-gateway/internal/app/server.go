@@ -6,12 +6,17 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/compress"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/gofiber/fiber/v2/middleware/timeout"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/valyala/fasthttp/fasthttpadaptor"
 
 	"github.com/hi-ai/gateway/internal/middleware"
 )
+
+// Fix: Global request timeout to prevent runaway requests
+const globalRequestTimeout = 90 * time.Second
 
 // NewServer creates and configures the Fiber HTTP server with all routes.
 func NewServer(app *App) *fiber.App {
@@ -24,10 +29,36 @@ func NewServer(app *App) *fiber.App {
 		ErrorHandler:          defaultErrorHandler,
 	})
 
-	// Global middleware
-	server.Use(recover.New())
+	// Fix: Reordered middleware stack: Recover > RequestID > CORS > Timeout > Compress > Metrics
+	// 1. Recover (panic recovery) - must be first to catch all panics
+	server.Use(recover.New(recover.Config{
+		EnableStackTrace: true,
+	}))
+	
+	// 2. RequestID - generate unique request ID for tracing
 	server.Use(middleware.RequestID())
+	
+	// 3. CORS - handle cross-origin requests early
 	server.Use(middleware.CORS())
+	
+	// 4. Timeout - global request timeout to prevent runaway requests
+	// Fix: Add 90 second timeout for all requests
+	server.Use(timeout.New(func(c *fiber.Ctx) error {
+		return c.Next()
+	}, globalRequestTimeout))
+	
+	// 5. Compression - gzip for non-streaming responses (improves bandwidth)
+	// Fix: Add compression middleware
+	server.Use(compress.New(compress.Config{
+		Level: compress.LevelDefault,
+		Next: func(c *fiber.Ctx) bool {
+			// Skip compression for streaming endpoints
+			return c.Query("stream") == "true" || 
+				   c.Get("Accept") == "text/event-stream"
+		},
+	}))
+	
+	// 6. Metrics - track request metrics
 	server.Use(middleware.Metrics())
 
 	// Health endpoints (no auth required)
@@ -182,6 +213,14 @@ func NewServer(app *App) *fiber.App {
 
 	// API keys audit routes (admin only)
 	adminGroup.Get("/api-keys", app.APIKeysAdminHandler.ListKeys)
+
+	// Model management routes (platform admin only)
+	// IMPORTANT: /sync and /reorder must be registered BEFORE /:id to avoid catching them as IDs
+	adminGroup.Get("/models", app.ModelsAdminHandler.List)
+	adminGroup.Post("/models/sync", app.ModelsAdminHandler.Sync)
+	adminGroup.Post("/models/reorder", app.ModelsAdminHandler.Reorder)
+	adminGroup.Put("/models/:id", app.ModelsAdminHandler.Update)
+	adminGroup.Post("/models/:id/toggle", app.ModelsAdminHandler.Toggle)
 
 	// Webhook routes (no auth, signature verification)
 	webhooks := server.Group("/api/webhooks")

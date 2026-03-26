@@ -5,7 +5,7 @@
     "badge": "简单透明",
     "selectAmount": "选择充值金额",
     "selectPayment": "选择支付方式",
-    "creditCard": "信用卡",
+    "creditCard": "银行卡",
     "alipay": "支付宝",
     "wechat": "微信支付",
     "orderSummary": "订单详情",
@@ -43,7 +43,7 @@
         },
         {
           "question": "支持哪些支付方式？",
-          "answer": "我们支持信用卡（Visa、Mastercard 等）、支付宝和微信支付。企业客户还可以申请发票结算。"
+          "answer": "我们支持银行卡（Visa、Mastercard 等）、支付宝和微信支付。企业客户还可以申请发票结算。"
         },
         {
           "question": "充值的余额会过期吗？",

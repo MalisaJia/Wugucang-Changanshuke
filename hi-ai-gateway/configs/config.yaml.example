@@ -1,0 +1,318 @@
+# Configuration template - copy to config.yaml and fill in real values
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+  read_timeout: 30
+  write_timeout: 60
+  idle_timeout: 120
+
+database:
+  host: "your-database-host.neon.tech"
+  port: 5432
+  user: "your_db_user"
+  password: "your_db_password"
+  dbname: "your_db_name"
+  sslmode: require
+  extra_params: "channel_binding=require"
+  max_conns: 10
+  min_conns: 2
+
+redis:
+  addr: ${HI_AI_REDIS_ADDR:-localhost:6379}
+  password: ${HI_AI_REDIS_PASSWORD:-}
+  db: 0
+
+auth:
+  jwt_secret: "your-jwt-secret-here-change-in-production"
+  access_token_ttl: 3600
+  refresh_token_ttl: 604800
+
+providers:
+  - id: entroflux-gpt4o
+    name: "EntroFlux GPT-4o"
+    api_key: "sk-your-api-key-here"
+    base_url: "https://chatapi.zjt66.top/v1"
+    enabled: true
+    models:
+      - "gpt-4o"
+
+  - id: entroflux-gpt4o-mini
+    name: "EntroFlux GPT-4o-mini"
+    api_key: "sk-your-api-key-here"
+    base_url: "https://chatapi.zjt66.top/v1"
+    enabled: true
+    models:
+      - "gpt-4o-mini"
+
+  - id: entroflux-gpt35
+    name: "EntroFlux GPT-3.5"
+    api_key: "sk-your-api-key-here"
+    base_url: "https://chatapi.zjt66.top/v1"
+    enabled: true
+    models:
+      - "gpt-3.5-turbo"
+
+  - id: entroflux-claude-opus
+    name: "EntroFlux Claude Opus"
+    api_key: "sk-your-api-key-here"
+    base_url: "https://chatapi.zjt66.top/v1"
+    enabled: true
+    models:
+      - "claude-opus-4-6"
+      - "claude-opus-4-6-thinking"
+
+  - id: entroflux-claude-sonnet
+    name: "EntroFlux Claude Sonnet"
+    api_key: "sk-your-api-key-here"
+    base_url: "https://chatapi.zjt66.top/v1"
+    enabled: true
+    models:
+      - "claude-sonnet-4-6-thinking"
+
+  - id: entroflux-gemini
+    name: "EntroFlux Gemini"
+    api_key: "sk-your-api-key-here"
+    base_url: "https://chatapi.zjt66.top/v1"
+    enabled: true
+    models:
+      - "gemini-2.5-flash-thinking"
+
+  # GPT-3.5 Series (New - Tested 2026-03-24)
+  - id: entroflux-gpt35-turbo-new
+    name: "EntroFlux GPT-3.5 Turbo (New)"
+    api_key: "sk-your-api-key-here"
+    base_url: "https://chatapi.zjt66.top/v1"
+    enabled: true
+    models:
+      - "gpt-3.5-turbo"
+
+  - id: entroflux-gpt35-turbo-0125
+    name: "EntroFlux GPT-3.5 Turbo 0125"
+    api_key: "sk-your-api-key-here"
+    base_url: "https://chatapi.zjt66.top/v1"
+    enabled: true
+    models:
+      - "gpt-3.5-turbo-0125"
+
+  - id: entroflux-gpt35-turbo-1106
+    name: "EntroFlux GPT-3.5 Turbo 1106"
+    api_key: "sk-your-api-key-here"
+    base_url: "https://chatapi.zjt66.top/v1"
+    enabled: true
+    models:
+      - "gpt-3.5-turbo-1106"
+
+  - id: entroflux-gpt35-turbo-16k
+    name: "EntroFlux GPT-3.5 Turbo 16K"
+    api_key: "sk-your-api-key-here"
+    base_url: "https://chatapi.zjt66.top/v1"
+    enabled: true
+    models:
+      - "gpt-3.5-turbo-16k"
+
+  - id: entroflux-gpt35-turbo-16k-0613
+    name: "EntroFlux GPT-3.5 Turbo 16K 0613"
+    api_key: "sk-your-api-key-here"
+    base_url: "https://chatapi.zjt66.top/v1"
+    enabled: true
+    models:
+      - "gpt-3.5-turbo-16k-0613"
+
+  # GPT-4.1 Series (New - Tested 2026-03-24)
+  - id: entroflux-gpt41
+    name: "EntroFlux GPT-4.1"
+    api_key: "sk-your-api-key-here"
+    base_url: "https://chatapi.zjt66.top/v1"
+    enabled: true
+    models:
+      - "gpt-4.1"
+
+  - id: entroflux-gpt41-2025-04-14
+    name: "EntroFlux GPT-4.1 2025-04-14"
+    api_key: "sk-your-api-key-here"
+    base_url: "https://chatapi.zjt66.top/v1"
+    enabled: true
+    models:
+      - "gpt-4.1-2025-04-14"
+
+  - id: entroflux-gpt41-mini
+    name: "EntroFlux GPT-4.1 Mini"
+    api_key: "sk-your-api-key-here"
+    base_url: "https://chatapi.zjt66.top/v1"
+    enabled: true
+    models:
+      - "gpt-4.1-mini"
+
+  - id: entroflux-gpt41-mini-2025-04-14
+    name: "EntroFlux GPT-4.1 Mini 2025-04-14"
+    api_key: "sk-your-api-key-here"
+    base_url: "https://chatapi.zjt66.top/v1"
+    enabled: true
+    models:
+      - "gpt-4.1-mini-2025-04-14"
+
+  - id: entroflux-gpt41-nano
+    name: "EntroFlux GPT-4.1 Nano"
+    api_key: "sk-your-api-key-here"
+    base_url: "https://chatapi.zjt66.top/v1"
+    enabled: true
+    models:
+      - "gpt-4.1-nano"
+
+  - id: entroflux-gpt41-nano-2025-04-14
+    name: "EntroFlux GPT-4.1 Nano 2025-04-14"
+    api_key: "sk-your-api-key-here"
+    base_url: "https://chatapi.zjt66.top/v1"
+    enabled: true
+    models:
+      - "gpt-4.1-nano-2025-04-14"
+
+  # Image Generation Models (New - Tested 2026-03-26)
+  - id: entroflux-flux1-kontext-pro
+    name: "EntroFlux Flux.1 Kontext Pro"
+    api_key: "sk-your-api-key-here"
+    base_url: "https://chatapi.zjt66.top/v1"
+    enabled: true
+    models:
+      - "flux.1-kontext-pro"
+
+  - id: entroflux-flux11-pro
+    name: "EntroFlux Flux 1.1 Pro"
+    api_key: "sk-your-api-key-here"
+    base_url: "https://chatapi.zjt66.top/v1"
+    enabled: true
+    models:
+      - "flux-1.1-pro"
+
+  - id: entroflux-doubao-seedream5
+    name: "EntroFlux Doubao Seedream 5.0"
+    api_key: "sk-your-api-key-here"
+    base_url: "https://chatapi.zjt66.top/v1"
+    enabled: true
+    models:
+      - "doubao-seedream-5-0-260128"
+
+  - id: entroflux-doubao-seedream45
+    name: "EntroFlux Doubao Seedream 4.5"
+    api_key: "sk-your-api-key-here"
+    base_url: "https://chatapi.zjt66.top/v1"
+    enabled: true
+    models:
+      - "doubao-seedream-4-5-251128"
+
+  # New Gemini Models (Tested 2026-03-26)
+  - id: entroflux-gemini20-flash
+    name: "EntroFlux Gemini 2.0 Flash"
+    api_key: "sk-your-api-key-here"
+    base_url: "https://chatapi.zjt66.top/v1"
+    enabled: true
+    models:
+      - "gemini-2.0-flash"
+
+  - id: entroflux-gemini25-flash-new
+    name: "EntroFlux Gemini 2.5 Flash (New Key)"
+    api_key: "sk-your-api-key-here"
+    base_url: "https://chatapi.zjt66.top/v1"
+    enabled: true
+    models:
+      - "gemini-2.5-flash"
+
+  - id: entroflux-gemini25-flash-lite-preview
+    name: "EntroFlux Gemini 2.5 Flash Lite Preview"
+    api_key: "sk-your-api-key-here"
+    base_url: "https://chatapi.zjt66.top/v1"
+    enabled: true
+    models:
+      - "gemini-2.5-flash-lite-preview-09-2025"
+
+  - id: entroflux-gemini25-flash-lite
+    name: "EntroFlux Gemini 2.5 Flash Lite"
+    api_key: "sk-your-api-key-here"
+    base_url: "https://chatapi.zjt66.top/v1"
+    enabled: true
+    models:
+      - "gemini-2.5-flash-lite"
+
+  - id: entroflux-gemini25-flash-image
+    name: "EntroFlux Gemini 2.5 Flash Image"
+    api_key: "sk-your-api-key-here"
+    base_url: "https://chatapi.zjt66.top/v1"
+    enabled: true
+    models:
+      - "gemini-2.5-flash-image"
+
+  - id: entroflux-gemini25-pro
+    name: "EntroFlux Gemini 2.5 Pro"
+    api_key: "sk-your-api-key-here"
+    base_url: "https://chatapi.zjt66.top/v1"
+    enabled: true
+    models:
+      - "gemini-2.5-pro"
+
+  - id: entroflux-gemini25-flash-thinking-new
+    name: "EntroFlux Gemini 2.5 Flash Thinking (New Key)"
+    api_key: "sk-your-api-key-here"
+    base_url: "https://chatapi.zjt66.top/v1"
+    enabled: true
+    models:
+      - "gemini-2.5-flash-thinking"
+
+  - id: entroflux-gemini25-flash-preview
+    name: "EntroFlux Gemini 2.5 Flash Preview"
+    api_key: "sk-your-api-key-here"
+    base_url: "https://chatapi.zjt66.top/v1"
+    enabled: true
+    models:
+      - "gemini-2.5-flash-preview-09-2025"
+
+  - id: entroflux-gemini25-flash-nothinking
+    name: "EntroFlux Gemini 2.5 Flash NoThinking"
+    api_key: "sk-your-api-key-here"
+    base_url: "https://chatapi.zjt66.top/v1"
+    enabled: true
+    models:
+      - "gemini-2.5-flash-nothinking"
+
+rate_limit:
+  enabled: true
+  default_rpm: 60
+  default_tpm: 100000
+
+metrics:
+  enabled: true
+  path: "/metrics"
+
+log:
+  level: "info"
+  format: "json"
+
+payment:
+  stripe:
+    secret_key: "sk_test_your_stripe_secret_key"
+    webhook_secret: "whsec_your_webhook_secret"
+  alipay:
+    app_id: ""
+    private_key: ""
+  wechat:
+    app_id: ""
+    mch_id: ""
+    api_key: ""
+
+routing:
+  mode: "fallback"
+  health_check:
+    window: "5m"
+    error_threshold: 5
+
+retry:
+  max_attempts: 3
+  initial_backoff: "200ms"
+  max_backoff: "5s"
+  backoff_multiplier: 2.0
+
+circuit_breaker:
+  failure_threshold: 5
+  success_threshold: 2
+  timeout: "30s"
+  window: "60s"

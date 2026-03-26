@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -18,6 +20,65 @@ const (
 	rateLimitWindow = 60
 )
 
+// Fix: Local in-memory rate limiter entry for Redis fallback
+type localRateLimitEntry struct {
+	count       int64
+	windowStart int64 // Unix timestamp of window start
+}
+
+// localRateLimiter provides in-memory rate limiting as fallback when Redis is unavailable
+type localRateLimiter struct {
+	entries sync.Map // map[string]*localRateLimitEntry
+	mu      sync.Mutex
+}
+
+// check checks and increments the rate limit counter
+func (l *localRateLimiter) check(key string, limit int) (bool, int, int64) {
+	now := time.Now().Unix()
+	windowStart := (now / rateLimitWindow) * rateLimitWindow
+	resetIn := windowStart + rateLimitWindow - now
+
+	// Try to get existing entry
+	val, _ := l.entries.LoadOrStore(key, &localRateLimitEntry{
+		count:       0,
+		windowStart: windowStart,
+	})
+	entry := val.(*localRateLimitEntry)
+
+	// Check if we need to reset the window
+	if atomic.LoadInt64(&entry.windowStart) != windowStart {
+		l.mu.Lock()
+		// Double-check with atomic load inside mutex
+		if atomic.LoadInt64(&entry.windowStart) != windowStart {
+			atomic.StoreInt64(&entry.count, 0)
+			atomic.StoreInt64(&entry.windowStart, windowStart)
+		}
+		l.mu.Unlock()
+	}
+
+	// Increment and check
+	current := atomic.AddInt64(&entry.count, 1)
+	if current > int64(limit) {
+		return false, int(current), resetIn
+	}
+
+	return true, int(current), resetIn
+}
+
+// cleanup removes stale entries (called periodically)
+func (l *localRateLimiter) cleanup() {
+	now := time.Now().Unix()
+	windowStart := (now / rateLimitWindow) * rateLimitWindow
+
+	l.entries.Range(func(key, value interface{}) bool {
+		entry := value.(*localRateLimitEntry)
+		if atomic.LoadInt64(&entry.windowStart) < windowStart-rateLimitWindow {
+			l.entries.Delete(key)
+		}
+		return true
+	})
+}
+
 // RateLimitConfig holds the configuration for rate limiting.
 type RateLimitConfig struct {
 	Enabled    bool
@@ -25,19 +86,51 @@ type RateLimitConfig struct {
 }
 
 // RateLimiter implements Redis-based sliding window rate limiting.
+// Fix: Now includes local in-memory fallback when Redis is unavailable
 type RateLimiter struct {
-	redis  *redis.Client
-	logger *slog.Logger
-	config RateLimitConfig
+	redis       *redis.Client
+	logger      *slog.Logger
+	config      RateLimitConfig
+	localLimiter *localRateLimiter    // Fix: In-memory fallback limiter
+	useLocal     atomic.Bool          // Fix: Whether currently using local fallback
+	stopCh       chan struct{}        // Fix: For cleanup goroutine
 }
 
 // NewRateLimiter creates a new rate limiter with the given Redis client and logger.
+// Fix: Now initializes local in-memory fallback limiter
 func NewRateLimiter(redisClient *redis.Client, logger *slog.Logger, cfg RateLimitConfig) *RateLimiter {
-	return &RateLimiter{
-		redis:  redisClient,
-		logger: logger,
-		config: cfg,
+	rl := &RateLimiter{
+		redis:        redisClient,
+		logger:       logger,
+		config:       cfg,
+		localLimiter: &localRateLimiter{},
+		stopCh:       make(chan struct{}),
 	}
+
+	// Start background cleanup for local limiter
+	go rl.cleanupLoop()
+
+	return rl
+}
+
+// cleanupLoop periodically cleans up stale local rate limit entries
+func (rl *RateLimiter) cleanupLoop() {
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			rl.localLimiter.cleanup()
+		case <-rl.stopCh:
+			return
+		}
+	}
+}
+
+// Stop stops the rate limiter's background goroutines
+func (rl *RateLimiter) Stop() {
+	close(rl.stopCh)
 }
 
 // Middleware returns a Fiber middleware that enforces rate limits.
@@ -76,13 +169,27 @@ func (rl *RateLimiter) Middleware() fiber.Handler {
 		allowed, current, resetIn, err := rl.checkRateLimit(ctx, key, limit)
 
 		if err != nil {
-			// Fail-open: if Redis is unavailable, allow the request
-			rl.logger.Warn("rate limit check failed, allowing request (fail-open)",
+			// Fix: Fall back to local in-memory rate limiter instead of fail-open
+			rl.logger.Warn("Redis rate limit check failed, using local fallback",
 				"error", err,
 				"tenant_id", tc.TenantID,
 				"key_id", tc.KeyID,
 			)
-			return c.Next()
+
+			// Mark that we're using local fallback
+			if !rl.useLocal.Load() {
+				rl.useLocal.Store(true)
+				rl.logger.Warn("switching to local rate limiter fallback")
+			}
+
+			// Use local limiter
+			allowed, current, resetIn = rl.localLimiter.check(key, limit)
+		} else {
+			// Redis is working - switch back from local if needed
+			if rl.useLocal.Load() {
+				rl.useLocal.Store(false)
+				rl.logger.Info("Redis recovered, switching back from local rate limiter")
+			}
 		}
 
 		// Calculate remaining requests

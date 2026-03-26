@@ -1,17 +1,29 @@
 package middleware
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 
 	apierr "github.com/hi-ai/gateway/internal/errors"
 	"github.com/hi-ai/gateway/pkg/openai"
+)
+
+// Fix: ReDoS protection constants
+const (
+	// Maximum content length to scan with regex (prevents ReDoS attacks)
+	maxContentLengthForRegex = 10000
+	// Chunk size for splitting large content
+	regexChunkSize = 5000
+	// Timeout for regex execution
+	regexTimeout = 100 * time.Millisecond
 )
 
 // PIIType represents a type of PII
@@ -106,8 +118,11 @@ func NewGuardrail(logger *slog.Logger) *Guardrail {
 			Description: "Chinese ID number",
 		},
 		{
-			Type:        PIICreditCard,
-			Pattern:     regexp.MustCompile(`\b(?:\d[ -]*?){13,19}\b`),
+			Type: PIICreditCard,
+			// Fix: Simplified regex to prevent ReDoS - removed problematic non-greedy quantifiers inside repetition
+			// Original: `\b(?:\d[ -]*?){13,19}\b` - causes catastrophic backtracking
+			// New: Matches common credit card formats without nested quantifiers
+			Pattern:     regexp.MustCompile(`\b(?:\d{4}[- ]?){3}\d{1,4}\b|\b\d{13,19}\b`),
 			Replacement: "[CARD_REDACTED]",
 			Description: "Credit card number",
 		},
@@ -262,6 +277,7 @@ func (g *Guardrail) getActivePatterns(enabledTypes []PIIType) []PIIPattern {
 }
 
 // scanMessages scans all message content for PII matches
+// Fix: Added input length limit and chunking for ReDoS protection
 func (g *Guardrail) scanMessages(messages []openai.Message, patterns []PIIPattern) (map[PIIType]int, bool) {
 	matches := make(map[PIIType]int)
 	hasMatches := false
@@ -272,16 +288,79 @@ func (g *Guardrail) scanMessages(messages []openai.Message, patterns []PIIPatter
 			continue
 		}
 
-		for _, pattern := range patterns {
-			found := pattern.Pattern.FindAllString(content, -1)
-			if len(found) > 0 {
-				matches[pattern.Type] += len(found)
+		// Fix: Scan content safely with length protection
+		msgMatches := g.scanContentSafe(content, patterns)
+		for piiType, count := range msgMatches {
+			matches[piiType] += count
+			if count > 0 {
 				hasMatches = true
 			}
 		}
 	}
 
 	return matches, hasMatches
+}
+
+// scanContentSafe scans content for PII with ReDoS protection
+// Fix: Splits large content into chunks and uses timeout for regex execution
+func (g *Guardrail) scanContentSafe(content string, patterns []PIIPattern) map[PIIType]int {
+	matches := make(map[PIIType]int)
+
+	// If content is too large, process in chunks
+	if len(content) > maxContentLengthForRegex {
+		g.logger.Warn("content exceeds max length for regex, processing in chunks",
+			"content_length", len(content),
+			"max_length", maxContentLengthForRegex,
+		)
+
+		// Split into overlapping chunks to avoid missing matches at boundaries
+		for i := 0; i < len(content); i += regexChunkSize {
+			end := i + regexChunkSize + 100 // 100 char overlap for boundary matches
+			if end > len(content) {
+				end = len(content)
+			}
+			chunk := content[i:end]
+
+			chunkMatches := g.scanChunkWithTimeout(chunk, patterns)
+			for piiType, count := range chunkMatches {
+				matches[piiType] += count
+			}
+		}
+		return matches
+	}
+
+	return g.scanChunkWithTimeout(content, patterns)
+}
+
+// scanChunkWithTimeout scans a chunk of content with timeout protection
+func (g *Guardrail) scanChunkWithTimeout(content string, patterns []PIIPattern) map[PIIType]int {
+	matches := make(map[PIIType]int)
+
+	for _, pattern := range patterns {
+		// Fix: Use context with timeout for regex execution to prevent ReDoS
+		ctx, cancel := context.WithTimeout(context.Background(), regexTimeout)
+
+		done := make(chan []string, 1)
+		go func() {
+			found := pattern.Pattern.FindAllString(content, -1)
+			done <- found
+		}()
+
+		select {
+		case found := <-done:
+			matches[pattern.Type] += len(found)
+		case <-ctx.Done():
+			g.logger.Warn("regex execution timed out",
+				"pattern_type", pattern.Type,
+				"content_length", len(content),
+			)
+			// Continue to next pattern - timeout is a safety measure
+		}
+
+		cancel()
+	}
+
+	return matches
 }
 
 // extractContent extracts string content from a message's Content field

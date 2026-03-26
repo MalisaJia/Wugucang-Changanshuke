@@ -11,7 +11,19 @@
     "notLoggedIn": "请先登录后开始对话。",
     "thinking": "思考中...",
     "errorOccurred": "发生错误，请重试。",
+    "streamTimeout": "连接超时，服务器停止响应。请重试。",
     "welcome": "欢迎！选择一个模型开始对话。",
-    "tokens": "tokens"
+    "tokens": "tokens",
+    "chatHistory": "对话历史",
+    "noConversations": "暂无对话记录",
+    "deleteChat": "删除",
+    "justNow": "刚刚",
+    "minutesAgo": "{{count}}分钟前",
+    "hoursAgo": "{{count}}小时前",
+    "daysAgo": "{{count}}天前",
+    "untitled": "新对话",
+    "historyTip": "仅保留最近 10 条对话记录，重要信息请及时保存",
+    "collapseHistory": "收起",
+    "expandHistory": "展开"
   }
 }

@@ -8,6 +8,7 @@ import { AuthGuard } from '@/components/auth/auth-guard';
 import { useAuthStore } from '@/lib/stores/auth-store';
 import { ThemeToggle } from '@/components/layout/theme-toggle';
 import { LocaleSwitcher } from '@/components/layout/locale-switcher';
+import { ErrorBoundary } from '@/components/ui/error-boundary';
 import {
   LayoutDashboard,
   Key,
@@ -20,7 +21,6 @@ import {
   Wallet,
   MessageSquare,
   Users,
-  Server,
 } from 'lucide-react';
 
 interface NavItem {
@@ -71,11 +71,6 @@ export default function DashboardLayout({
       href: '/dashboard/team',
       label: t('team'),
       icon: <Users className="h-5 w-5" />,
-    },
-    {
-      href: '/dashboard/providers',
-      label: t('providers'),
-      icon: <Server className="h-5 w-5" />,
     },
     {
       href: '/dashboard/analytics',
@@ -239,7 +234,9 @@ export default function DashboardLayout({
           </header>
 
           {/* Page content */}
-          <main className="p-4 lg:p-6">{children}</main>
+          <main className="p-4 lg:p-6">
+            <ErrorBoundary>{children}</ErrorBoundary>
+          </main>
         </div>
       </div>
     </AuthGuard>

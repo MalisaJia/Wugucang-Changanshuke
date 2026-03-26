@@ -28,6 +28,22 @@ func (r *BillingRepository) Pool() *pgxpool.Pool {
 	return r.db.pool
 }
 
+// BeginSerializableTx starts a transaction with Serializable isolation level.
+// Fix: Prevents concurrent requests from over-deducting balance (race condition)
+func (r *BillingRepository) BeginSerializableTx(ctx context.Context) (pgx.Tx, error) {
+	return r.db.pool.BeginTx(ctx, pgx.TxOptions{
+		IsoLevel: pgx.Serializable,
+	})
+}
+
+// BeginRepeatableReadTx starts a transaction with Repeatable Read isolation level.
+// Fix: Provides snapshot isolation for balance operations
+func (r *BillingRepository) BeginRepeatableReadTx(ctx context.Context) (pgx.Tx, error) {
+	return r.db.pool.BeginTx(ctx, pgx.TxOptions{
+		IsoLevel: pgx.RepeatableRead,
+	})
+}
+
 // =====================
 // Balance Operations
 // =====================

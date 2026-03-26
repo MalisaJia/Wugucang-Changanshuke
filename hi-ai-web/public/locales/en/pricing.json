@@ -5,7 +5,7 @@
     "badge": "Simple & Transparent",
     "selectAmount": "Select Recharge Amount",
     "selectPayment": "Select Payment Method",
-    "creditCard": "Credit Card",
+    "creditCard": "Bank Card",
     "alipay": "Alipay",
     "wechat": "WeChat Pay",
     "orderSummary": "Order Summary",
@@ -43,7 +43,7 @@
         },
         {
           "question": "What payment methods are supported?",
-          "answer": "We support Credit Card (Visa, Mastercard, etc.), Alipay, and WeChat Pay. Enterprise customers can also request invoice-based billing."
+          "answer": "We support Bank Card (Visa, Mastercard, etc.), Alipay, and WeChat Pay. Enterprise customers can also request invoice-based billing."
         },
         {
           "question": "Do recharge credits expire?",

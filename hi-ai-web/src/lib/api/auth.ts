@@ -18,6 +18,7 @@ export interface User {
   display_name: string;
   role: string;
   tenant_id: string;
+  is_platform_admin: boolean;
 }
 
 export interface AuthResponse {
@@ -27,11 +28,11 @@ export interface AuthResponse {
 }
 
 export async function loginAPI(data: LoginRequest): Promise<AuthResponse> {
-  return apiClient.post<AuthResponse>('/api/auth/login', data);
+  return apiClient.postPublic<AuthResponse>('/api/auth/login', data);
 }
 
 export async function registerAPI(data: RegisterRequest): Promise<AuthResponse> {
-  return apiClient.post<AuthResponse>('/api/auth/register', data);
+  return apiClient.postPublic<AuthResponse>('/api/auth/register', data);
 }
 
 export async function refreshTokenAPI(refreshToken: string): Promise<AuthResponse> {

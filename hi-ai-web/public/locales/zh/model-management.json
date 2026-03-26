@@ -1,0 +1,31 @@
+{
+  "model-management": {
+    "title": "模型管理",
+    "description": "管理平台模型的展示和优先级",
+    "syncModels": "同步模型",
+    "syncing": "同步中...",
+    "syncSuccess": "同步成功，新增 {count} 个模型",
+    "all": "全部",
+    "online": "已上线",
+    "hidden": "已隐藏",
+    "searchPlaceholder": "搜索模型...",
+    "modelId": "模型 ID",
+    "displayName": "展示名称",
+    "provider": "供应商",
+    "priority": "优先级",
+    "visibility": "可见性",
+    "visible": "已上线",
+    "hiddenStatus": "已隐藏",
+    "tags": "标签",
+    "priceInput": "输入价格 (元/千token)",
+    "priceOutput": "输出价格 (元/千token)",
+    "maxContext": "最大上下文",
+    "description_field": "模型描述",
+    "edit": "编辑",
+    "save": "保存",
+    "cancel": "取消",
+    "noModels": "暂无模型，点击同步按钮从配置中导入",
+    "updateSuccess": "模型配置已更新",
+    "actions": "操作"
+  }
+}

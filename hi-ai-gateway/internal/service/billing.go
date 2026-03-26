@@ -88,16 +88,15 @@ func (s *BillingService) Recharge(ctx context.Context, tenantID uuid.UUID, amoun
 // Deduct removes amount from a tenant's balance (called per API request).
 // This operation is transactional: check balance >= costCents, update balance, create transaction, create usage log.
 // Returns error if insufficient balance.
+// Fix: Uses Serializable isolation level to prevent over-deduction race conditions
 func (s *BillingService) Deduct(ctx context.Context, tenantID uuid.UUID, tokensUsed int, model string, keyID uuid.UUID, latencyMs int) error {
 	// Calculate cost based on model pricing (estimate: 50% input, 50% output)
 	tokensIn := tokensUsed / 2
 	tokensOut := tokensUsed - tokensIn
 	costCents := domain.GetModelCost(model, tokensIn, tokensOut)
 
-	pool := s.repo.Pool()
-
-	// Start transaction
-	tx, err := pool.Begin(ctx)
+	// Fix: Start transaction with Serializable isolation to prevent concurrent over-deduction
+	tx, err := s.repo.BeginSerializableTx(ctx)
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
@@ -162,14 +161,13 @@ func (s *BillingService) Deduct(ctx context.Context, tenantID uuid.UUID, tokensU
 
 // DeductWithDetails removes amount with detailed input/output tracking.
 // Cost is calculated using GetModelCost based on model pricing.
+// Fix: Uses Serializable isolation level to prevent over-deduction race conditions
 func (s *BillingService) DeductWithDetails(ctx context.Context, tenantID uuid.UUID, tokensIn, tokensOut int, model string, keyID uuid.UUID, latencyMs int) error {
 	tokensTotal := tokensIn + tokensOut
 	costCents := domain.GetModelCost(model, tokensIn, tokensOut)
 
-	pool := s.repo.Pool()
-
-	// Start transaction
-	tx, err := pool.Begin(ctx)
+	// Fix: Start transaction with Serializable isolation to prevent concurrent over-deduction
+	tx, err := s.repo.BeginSerializableTx(ctx)
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}

@@ -92,13 +92,18 @@
     "updatedAt": "Updated At",
     "customSettings": "Custom Settings",
 
+    "teamManagementDesc": "Manage platform teams and member roles.",
+    "modelManagementDesc": "Configure model visibility, priority, and display settings.",
+
     "nav": {
       "dashboard": "Dashboard",
       "users": "Users",
       "refunds": "Refunds",
       "audit": "Audit Logs",
       "analytics": "Analytics",
+      "team": "Team",
       "providers": "Providers",
+      "modelManagement": "Model Management",
       "settings": "Settings",
       "security": "Security",
       "routing": "Routing",

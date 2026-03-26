@@ -124,10 +124,11 @@ func (s *UserService) validatePassword(password, email string) error {
 // GenerateTokens creates access and refresh JWT tokens.
 func (s *UserService) GenerateTokens(user *domain.User) (*AuthResponse, error) {
 	accessClaims := &middleware.JWTClaims{
-		UserID:   user.ID,
-		TenantID: user.TenantID,
-		Email:    user.Email,
-		Role:     string(user.Role),
+		UserID:          user.ID,
+		TenantID:        user.TenantID,
+		Email:           user.Email,
+		Role:            string(user.Role),
+		IsPlatformAdmin: user.IsPlatformAdmin,
 	}
 
 	accessToken, err := middleware.GenerateJWT(s.jwtSecret, accessClaims, s.accessTokenTTL)

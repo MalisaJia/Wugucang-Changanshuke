@@ -26,6 +26,8 @@ import {
   ShieldCheck,
   ArrowLeft,
   Loader2,
+  UserCog,
+  Cpu,
 } from 'lucide-react';
 
 interface NavItem {
@@ -90,9 +92,19 @@ export default function AdminLayout({
       icon: <BarChart3 className="h-5 w-5" />,
     },
     {
+      href: '/admin/dashboard/team',
+      label: t('nav.team'),
+      icon: <UserCog className="h-5 w-5" />,
+    },
+    {
       href: '/admin/dashboard/providers',
       label: t('nav.providers'),
       icon: <Server className="h-5 w-5" />,
+    },
+    {
+      href: '/admin/dashboard/model-management',
+      label: t('nav.modelManagement'),
+      icon: <Cpu className="h-5 w-5" />,
     },
     {
       href: '/admin/dashboard/settings',

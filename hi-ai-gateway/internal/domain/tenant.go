@@ -20,17 +20,18 @@ type Tenant struct {
 
 // User represents a user within a tenant.
 type User struct {
-	ID           string     `json:"id" db:"id"`
-	TenantID     string     `json:"tenant_id" db:"tenant_id"`
-	Email        string     `json:"email" db:"email"`
-	PasswordHash string     `json:"-" db:"password_hash"`
-	DisplayName  string     `json:"display_name" db:"display_name"`
-	Role         Role       `json:"role" db:"role"`
-	Status       string     `json:"status" db:"status"`
-	LastLoginAt  *time.Time `json:"last_login_at,omitempty" db:"last_login_at"`
-	CreatedAt    time.Time  `json:"created_at" db:"created_at"`
-	UpdatedAt    time.Time  `json:"updated_at" db:"updated_at"`
-	DeletedAt    *time.Time `json:"deleted_at,omitempty" db:"deleted_at"`
+	ID              string     `json:"id" db:"id"`
+	TenantID        string     `json:"tenant_id" db:"tenant_id"`
+	Email           string     `json:"email" db:"email"`
+	PasswordHash    string     `json:"-" db:"password_hash"`
+	DisplayName     string     `json:"display_name" db:"display_name"`
+	Role            Role       `json:"role" db:"role"`
+	Status          string     `json:"status" db:"status"`
+	IsPlatformAdmin bool       `json:"is_platform_admin" db:"is_platform_admin"`
+	LastLoginAt     *time.Time `json:"last_login_at,omitempty" db:"last_login_at"`
+	CreatedAt       time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at" db:"updated_at"`
+	DeletedAt       *time.Time `json:"deleted_at,omitempty" db:"deleted_at"`
 }
 
 // Role defines user permission levels.

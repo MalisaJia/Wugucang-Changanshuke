@@ -14,7 +14,7 @@
     "selectPayment": "Payment Method",
     "alipay": "Alipay",
     "wechat": "WeChat Pay",
-    "creditCard": "Credit Card",
+    "creditCard": "Bank Card",
     "comingSoon": "Coming Soon",
     "lowBalance": "Low balance! Please recharge to continue.",
     "transactions": "Transaction History",

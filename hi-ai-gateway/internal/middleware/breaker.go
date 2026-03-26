@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"container/list"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -8,6 +9,13 @@ import (
 
 	"github.com/sony/gobreaker/v2"
 	"github.com/hi-ai/gateway/internal/telemetry"
+)
+
+const (
+	// Fix: prevent breaker pool memory leak under high cardinality
+	maxBreakerPoolSize    = 10000             // Cap the pool at 10K entries max
+	breakerCleanupInterval = 5 * time.Minute  // Cleanup interval
+	breakerStaleTTL       = 30 * time.Minute  // Evict breakers not accessed in 30 minutes
 )
 
 // BreakerConfig holds circuit breaker configuration
@@ -28,14 +36,26 @@ func DefaultBreakerConfig() BreakerConfig {
 	}
 }
 
-// BreakerPool manages per-provider:model circuit breakers
+// breakerEntry holds a circuit breaker with LRU metadata
+type breakerEntry struct {
+	cb         *gobreaker.CircuitBreaker[any]
+	key        string
+	lastAccess time.Time
+	lruElement *list.Element // Pointer to LRU list element for O(1) removal
+}
+
+// BreakerPool manages per-provider:model circuit breakers with LRU eviction
+// Fix: Added LRU eviction and TTL-based cleanup to prevent memory leak
 type BreakerPool struct {
 	mu       sync.RWMutex
-	breakers map[string]*gobreaker.CircuitBreaker[any]
+	breakers map[string]*breakerEntry
+	lruList  *list.List // LRU list for eviction (front = most recently used)
 	config   BreakerConfig
+	stopCh   chan struct{} // Channel to stop background cleanup goroutine
 }
 
 // NewBreakerPool creates a new BreakerPool with the given configuration
+// Fix: Now starts a background goroutine for TTL-based cleanup
 func NewBreakerPool(cfg BreakerConfig) *BreakerPool {
 	// Apply defaults for zero values
 	if cfg.FailureThreshold == 0 {
@@ -51,9 +71,70 @@ func NewBreakerPool(cfg BreakerConfig) *BreakerPool {
 		cfg.Window = 60 * time.Second
 	}
 
-	return &BreakerPool{
-		breakers: make(map[string]*gobreaker.CircuitBreaker[any]),
+	pool := &BreakerPool{
+		breakers: make(map[string]*breakerEntry),
+		lruList:  list.New(),
 		config:   cfg,
+		stopCh:   make(chan struct{}),
+	}
+
+	// Start background cleanup goroutine
+	go pool.cleanupLoop()
+
+	return pool
+}
+
+// Stop stops the background cleanup goroutine
+func (p *BreakerPool) Stop() {
+	close(p.stopCh)
+}
+
+// cleanupLoop periodically removes stale breakers that haven't been accessed
+func (p *BreakerPool) cleanupLoop() {
+	ticker := time.NewTicker(breakerCleanupInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			p.cleanupStaleBreakers()
+		case <-p.stopCh:
+			return
+		}
+	}
+}
+
+// cleanupStaleBreakers removes breakers not accessed within the TTL
+func (p *BreakerPool) cleanupStaleBreakers() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	now := time.Now()
+	staleThreshold := now.Add(-breakerStaleTTL)
+	removedCount := 0
+
+	// Iterate from back of LRU list (least recently used)
+	for elem := p.lruList.Back(); elem != nil; {
+		entry := elem.Value.(*breakerEntry)
+		prev := elem.Prev()
+
+		if entry.lastAccess.Before(staleThreshold) {
+			// Remove stale entry
+			p.lruList.Remove(elem)
+			delete(p.breakers, entry.key)
+			removedCount++
+		} else {
+			// Since list is ordered by access time, we can stop here
+			break
+		}
+		elem = prev
+	}
+
+	if removedCount > 0 {
+		slog.Info("cleaned up stale circuit breakers",
+			"removed", removedCount,
+			"remaining", len(p.breakers),
+		)
 	}
 }
 
@@ -63,15 +144,22 @@ func makeKey(providerID, modelID string) string {
 }
 
 // GetBreaker returns or creates a circuit breaker for the given key (format: "provider_id:model_id")
+// Fix: Now implements LRU eviction when pool is full
 func (p *BreakerPool) GetBreaker(providerID, modelID string) *gobreaker.CircuitBreaker[any] {
 	key := makeKey(providerID, modelID)
+	now := time.Now()
 
 	// Fast path: check if breaker already exists
 	p.mu.RLock()
-	cb, exists := p.breakers[key]
+	entry, exists := p.breakers[key]
 	p.mu.RUnlock()
 	if exists {
-		return cb
+		// Update access time and move to front of LRU list
+		p.mu.Lock()
+		entry.lastAccess = now
+		p.lruList.MoveToFront(entry.lruElement)
+		p.mu.Unlock()
+		return entry.cb
 	}
 
 	// Slow path: create new breaker
@@ -79,8 +167,15 @@ func (p *BreakerPool) GetBreaker(providerID, modelID string) *gobreaker.CircuitB
 	defer p.mu.Unlock()
 
 	// Double-check after acquiring write lock
-	if cb, exists = p.breakers[key]; exists {
-		return cb
+	if entry, exists = p.breakers[key]; exists {
+		entry.lastAccess = now
+		p.lruList.MoveToFront(entry.lruElement)
+		return entry.cb
+	}
+
+	// Fix: Evict LRU entries if pool is at capacity
+	for len(p.breakers) >= maxBreakerPoolSize {
+		p.evictLRU()
 	}
 
 	// Create new circuit breaker with settings
@@ -105,9 +200,27 @@ func (p *BreakerPool) GetBreaker(providerID, modelID string) *gobreaker.CircuitB
 		},
 	}
 
-	cb = gobreaker.NewCircuitBreaker[any](settings)
-	p.breakers[key] = cb
+	cb := gobreaker.NewCircuitBreaker[any](settings)
+	entry = &breakerEntry{
+		cb:         cb,
+		key:        key,
+		lastAccess: now,
+	}
+	entry.lruElement = p.lruList.PushFront(entry)
+	p.breakers[key] = entry
 	return cb
+}
+
+// evictLRU removes the least recently used breaker (must be called with lock held)
+func (p *BreakerPool) evictLRU() {
+	elem := p.lruList.Back()
+	if elem == nil {
+		return
+	}
+	entry := elem.Value.(*breakerEntry)
+	p.lruList.Remove(elem)
+	delete(p.breakers, entry.key)
+	slog.Debug("evicted LRU circuit breaker", "key", entry.key, "pool_size", len(p.breakers))
 }
 
 // Execute wraps a function call with circuit breaker protection
@@ -140,16 +253,23 @@ func (p *BreakerPool) ListAll() []BreakerStatus {
 	defer p.mu.RUnlock()
 
 	result := make([]BreakerStatus, 0, len(p.breakers))
-	for key, cb := range p.breakers {
-		counts := cb.Counts()
+	for key, entry := range p.breakers {
+		counts := entry.cb.Counts()
 		result = append(result, BreakerStatus{
 			Key:      key,
-			State:    stateString(cb.State()),
+			State:    stateString(entry.cb.State()),
 			Failures: counts.ConsecutiveFailures,
 		})
 	}
 
 	return result
+}
+
+// Size returns the current number of breakers in the pool
+func (p *BreakerPool) Size() int {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return len(p.breakers)
 }
 
 // GetConfig returns the current circuit breaker configuration

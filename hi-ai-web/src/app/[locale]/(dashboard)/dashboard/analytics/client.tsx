@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
+import { useRouter, useParams } from 'next/navigation';
 import { 
   Activity, 
   Zap, 
@@ -21,6 +22,7 @@ import {
   type ModelStats,
 } from '@/lib/api/analytics';
 import { ApiClientError } from '@/lib/api/client';
+import { useAuthStore } from '@/lib/stores/auth-store';
 
 type TimeRange = 'today' | '7d' | '30d' | 'month';
 
@@ -262,6 +264,11 @@ function estimateCost(tokens: number): string {
 
 export default function AnalyticsClient() {
   const t = useTranslations('analytics');
+  const { user } = useAuthStore();
+  const router = useRouter();
+  const params = useParams();
+  const locale = (params.locale as string) || 'en';
+  
   const [timeRange, setTimeRange] = useState<TimeRange>('7d');
   const [summary, setSummary] = useState<UsageSummary | null>(null);
   const [usageLogs, setUsageLogs] = useState<UsageLog[]>([]);
@@ -269,6 +276,22 @@ export default function AnalyticsClient() {
   const [logsTotal, setLogsTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Admin route guard
+  useEffect(() => {
+    if (user && user.role !== 'admin' && user.role !== 'owner') {
+      router.replace(`/${locale}/dashboard`);
+    }
+  }, [user, locale, router]);
+
+  // If not admin, don't render content
+  if (!user || (user.role !== 'admin' && user.role !== 'owner')) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
 
   const getDaysForRange = (range: TimeRange): number => {
     switch (range) {

@@ -1,0 +1,31 @@
+{
+  "model-management": {
+    "title": "Model Management",
+    "description": "Manage model visibility and priority for users",
+    "syncModels": "Sync Models",
+    "syncing": "Syncing...",
+    "syncSuccess": "Synced successfully, {count} new models added",
+    "all": "All",
+    "online": "Online",
+    "hidden": "Hidden",
+    "searchPlaceholder": "Search models...",
+    "modelId": "Model ID",
+    "displayName": "Display Name",
+    "provider": "Provider",
+    "priority": "Priority",
+    "visibility": "Visibility",
+    "visible": "Visible",
+    "hiddenStatus": "Hidden",
+    "tags": "Tags",
+    "priceInput": "Input Price ($/1K tokens)",
+    "priceOutput": "Output Price ($/1K tokens)",
+    "maxContext": "Max Context",
+    "description_field": "Description",
+    "edit": "Edit",
+    "save": "Save",
+    "cancel": "Cancel",
+    "noModels": "No models yet. Click Sync to import from config.",
+    "updateSuccess": "Model config updated",
+    "actions": "Actions"
+  }
+}

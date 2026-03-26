@@ -5,7 +5,6 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"github.com/hi-ai/gateway/internal/domain"
 	apierr "github.com/hi-ai/gateway/internal/errors"
 	"github.com/hi-ai/gateway/internal/middleware"
 )
@@ -24,16 +23,15 @@ func NewSecurityHandler(guardrail *middleware.Guardrail, logger *slog.Logger) *S
 	}
 }
 
-// requireAdmin checks if the user has admin or owner role.
+// requireAdmin checks if the user is a platform admin.
 func (h *SecurityHandler) requireAdmin(c *fiber.Ctx) (*middleware.TenantContext, error) {
 	tc := middleware.GetTenantContext(c)
 	if tc == nil {
 		return nil, apierr.Unauthorized("authentication required")
 	}
 
-	role := domain.Role(tc.Role)
-	if !role.HasPermission(domain.RoleAdmin) {
-		return nil, apierr.Forbidden("admin access required")
+	if !tc.IsPlatformAdmin {
+		return nil, apierr.Forbidden("platform admin access required")
 	}
 
 	return tc, nil

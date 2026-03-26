@@ -8,6 +8,7 @@
   "team": "Team",
   "analytics": "Analytics",
   "providers": "Providers",
+  "modelManagement": "Model Management",
   "settings": "Settings",
   "auditLog": "Audit Log",
   "welcome": "Welcome back",
@@ -44,6 +45,18 @@
   "recentActivity": {
     "title": "Recent Activity",
     "noActivity": "No recent activity"
+  },
+  "activity": {
+    "chatCompletion": "Sent a chat message",
+    "apiKeyCreate": "Created an API Key",
+    "apiKeyRevoke": "Revoked an API Key",
+    "providerUpdate": "Updated provider config",
+    "userLogin": "Logged in",
+    "userRegister": "Registered account",
+    "billingRecharge": "Recharged account",
+    "profileUpdate": "Updated profile",
+    "settingsUpdate": "Updated settings",
+    "unknownAction": "Unknown action"
   },
   "analyticsPage": {
     "title": "Usage Analytics",

@@ -3,11 +3,29 @@ package adapter
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"time"
+
+	"golang.org/x/net/http2"
+)
+
+// Fix: Connection pool tuning for 20K concurrent connections
+const (
+	// Increased connection pool limits for high concurrency
+	maxIdleConns        = 500
+	maxIdleConnsPerHost = 100
+	maxConnsPerHost     = 200
+	// Reduced timeout from 120s to 90s to prevent zombie connections
+	clientTimeout       = 90 * time.Second
+	idleConnTimeout     = 90 * time.Second
+	tlsHandshakeTimeout = 10 * time.Second
+	dialTimeout         = 30 * time.Second
+	keepAliveInterval   = 30 * time.Second
 )
 
 // BaseAdapter provides shared HTTP client functionality for all adapters.
@@ -20,16 +38,34 @@ type BaseAdapter struct {
 }
 
 // NewBaseAdapter creates a base adapter with a configured HTTP client.
+// Fix: Optimized for 20K concurrency with HTTP/2 support
 func NewBaseAdapter(id, baseURL, apiKey string, models []string) BaseAdapter {
+	// Create custom transport with optimized settings
+	transport := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   dialTimeout,
+			KeepAlive: keepAliveInterval,
+		}).DialContext,
+		MaxIdleConns:        maxIdleConns,
+		MaxIdleConnsPerHost: maxIdleConnsPerHost,
+		MaxConnsPerHost:     maxConnsPerHost,
+		IdleConnTimeout:     idleConnTimeout,
+		TLSHandshakeTimeout: tlsHandshakeTimeout,
+		// Fix: Enable HTTP/2 connection reuse
+		ForceAttemptHTTP2: true,
+		TLSClientConfig: &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		},
+	}
+
+	// Fix: Configure HTTP/2 transport for upstream provider connections
+	http2.ConfigureTransport(transport)
+
 	return BaseAdapter{
 		client: &http.Client{
-			Timeout: 120 * time.Second,
-			Transport: &http.Transport{
-				Proxy:               http.ProxyFromEnvironment,
-				MaxIdleConns:        100,
-				MaxIdleConnsPerHost: 20,
-				IdleConnTimeout:     90 * time.Second,
-			},
+			Timeout:   clientTimeout,
+			Transport: transport,
 		},
 		id:      id,
 		baseURL: baseURL,
